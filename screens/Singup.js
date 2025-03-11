@@ -1,7 +1,9 @@
 import React, { useState } from "react";
-import { View, TextInput, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, TextInput, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import axios from "axios";
-import { LinearGradient } from 'expo-linear-gradient'; // Add this import
+import { LinearGradient } from 'expo-linear-gradient';
+import Constants from 'expo-constants';
+const IP_ADDRESS = Constants.expoConfig.extra.IP_ADDRESS;
 
 const Signup = ({ navigation }) => {
   const [name, setName] = useState("");
@@ -16,13 +18,15 @@ const Signup = ({ navigation }) => {
     return re.test(String(email).toLowerCase());
   };
 
+  const handleRoleSelection = (selectedRole) => {
+    setRole(prevRole => prevRole === selectedRole ? "" : selectedRole);
+  };
+
   const handleSignup = async () => {
     try {
-      // Reset messages
       setError("");
       setSuccess("");
 
-      // Frontend validation
       if (!name || !email || !password) {
         setError("All fields are required");
         return;
@@ -38,11 +42,11 @@ const Signup = ({ navigation }) => {
         return;
       }
 
-      const response = await axios.post(`http://192.168.1.4:5000/api/user/register`, {
+      const response = await axios.post(`http://${IP_ADDRESS}:5000/api/user/register`, {
         name,
         email,
         password,
-        role
+        role 
       });
 
       setSuccess(response.data.message);
@@ -59,79 +63,87 @@ const Signup = ({ navigation }) => {
 
   return (
     <LinearGradient
-    colors={['#201919', '#810202']}
-    start={{ x: 0.48, y: 0 }}
-    end={{ x: 0.99, y: 0.41 }}
-    style={styles.container}
-  >
-    {/* Rest of your JSX content */}
+      colors={['#201919', '#810202']}
+      start={{ x: 0.48, y: 0 }}
+      end={{ x: 0.99, y: 0.41 }}
+      style={styles.container}
+    >
+      <View style={styles.signupSection}>
+        <View style={{ alignItems: "center", marginBottom: 20, marginTop: 10 }}>
+          <Image source={require("../assets/icons/profile.png")} />
+        </View>
+        <Text style={styles.title}>Welcome to Elderly Care</Text>
 
-     <View style={styles.signupSection}>
-     <Text style={styles.title}>Welcome to Elderly Care</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Full Name"
+          value={name}
+          onChangeText={setName}
+          autoCapitalize="words"
+          placeholderTextColor="#676054"
+        />
 
-<TextInput
-  style={styles.input}
-  placeholder="Full Name"
-  value={name}
-  onChangeText={setName}
-  autoCapitalize="words"
-/>
+        <TextInput
+          style={styles.input}
+          placeholder="Email Address"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          placeholderTextColor="#676054"
+        />
 
-<TextInput
-  style={styles.input}
-  placeholder="Email Address"
-  value={email}
-  onChangeText={setEmail}
-  keyboardType="email-address"
-  autoCapitalize="none"
-/>
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          autoCapitalize="none"
+          placeholderTextColor="#676054"
+        />
 
-<TextInput
-  style={styles.input}
-  placeholder="Password"
-  value={password}
-  onChangeText={setPassword}
-  secureTextEntry
-  autoCapitalize="none"
-/>
+        <Text style={styles.roleLabel}>Select Your Role:</Text>
 
-<Text style={styles.roleLabel}>Select Your Role:</Text>
+        <View style={styles.roleContainer}>
+          {/* Healthcare Provider Checkbox */}
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={() => handleRoleSelection('doctor')}
+          >
+            <View style={[styles.checkbox, role === 'doctor' && styles.checkedBox]}>
+              {role === 'doctor' && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={styles.checkboxLabel}>Doctor</Text>
+          </TouchableOpacity>
 
-<View style={styles.roleContainer}>
-  <TouchableOpacity
-    style={[styles.roleButton, role === 'doctor' && styles.selectedRole]}
-    onPress={() => setRole('doctor')}
-  >
-    <Text style={[styles.roleText, role === 'doctor' && styles.selectedRoleText]}>
-      Healthcare Provider
-    </Text>
-  </TouchableOpacity>
+          {/* Patient Checkbox */}
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={() => handleRoleSelection('patient')}
+          >
+            <View style={[styles.checkbox, role === 'patient' && styles.checkedBox]}>
+              {role === 'patient' && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={styles.checkboxLabel}>Patient</Text>
+          </TouchableOpacity>
+        </View>
 
-  <TouchableOpacity
-    style={[styles.roleButton, role === 'patient' && styles.selectedRole]}
-    onPress={() => setRole('patient')}
-  >
-    <Text style={[styles.roleText, role === 'patient' && styles.selectedRoleText]}>
-      Patient/Care Recipient
-    </Text>
-  </TouchableOpacity>
-</View>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {success ? <Text style={styles.success}>{success}</Text> : null}
 
-{error ? <Text style={styles.error}>{error}</Text> : null}
-{success ? <Text style={styles.success}>{success}</Text> : null}
+        <TouchableOpacity style={styles.button} onPress={handleSignup}>
+          <Text style={styles.buttonText}>Signup</Text>
+        </TouchableOpacity>
 
-<TouchableOpacity style={styles.button} onPress={handleSignup}>
-  <Text style={styles.buttonText}>Create Account</Text>
-</TouchableOpacity>
-
-<Text style={styles.loginText}>
-  Already have an account?{" "}
-  <Text style={styles.loginLink} onPress={handleLoginRedirect}>
-    Sign In
-  </Text>
-</Text>
-     </View>
-      </LinearGradient>
+        <Text style={styles.loginText}>
+          Already have an account?{" "}
+          <Text style={styles.loginLink} onPress={handleLoginRedirect}>
+            Login
+          </Text>
+        </Text>
+      </View>
+    </LinearGradient>
   );
 };
 
@@ -140,78 +152,78 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     padding: 25,
-   
-    // background: linear-gradient(91deg, #201919 0.48%, #810202 99.41%);
   },
-  signupSection:{
+  signupSection: {
     borderRadius: 5,
     width: "100%",
     backgroundColor: "#222222",
-    padding:14,
+    padding: 14,
     shadowColor: "#F00",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.8,
     shadowRadius: 4,
     elevation: 5,
-    
-   
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "600",
     color: "white",
-    marginBottom: 40,
+    marginBottom: 20,
     textAlign: "center",
   },
   input: {
     height: 50,
     backgroundColor: "#333333",
-    color: "#676054",
-    // borderWidth: 1,
-    // borderColor: "#DEE2E6",
+    color: "#bbb7b0",
     borderRadius: 8,
     paddingHorizontal: 15,
-    outlineColor: "#333333",
-    outlineWidth: 0,
     marginBottom: 15,
     fontSize: 16,
     elevation: 2,
   },
   roleLabel: {
     fontSize: 16,
-    color: "#495057",
+    color: "#6d7781",
     marginBottom: 12,
     marginTop: 10,
   },
   roleContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
+    flexDirection: 'row', // Add this line to make checkboxes in one row
+    gap: 40,
+    marginLeft: 7,
     marginBottom: 20,
   },
-  roleButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 8,
-    backgroundColor: "#E9ECEF",
-    borderWidth: 1,
-    borderColor: "#DEE2E6",
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
   },
-  selectedRole: {
-    backgroundColor: "#5D65B0",
-    borderColor: "#5D65B0",
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#666',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    backgroundColor: '#333',
   },
-  roleText: {
-    textAlign: "center",
-    fontSize: 14,
-    color: "#495057",
-    fontWeight: "500",
+  checkedBox: {
+    backgroundColor: '#5D65B0',
+    borderColor: '#5D65B0',
   },
-  selectedRoleText: {
-    color: "#FFFFFF",
+  checkmark: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  checkboxLabel: {
+    color: '#bbb7b0',
+    fontSize: 16,
   },
   button: {
-    backgroundColor: "#5D65B0",
+    backgroundColor: "#F00",
     paddingVertical: 15,
     borderRadius: 8,
     marginTop: 10,
@@ -238,8 +250,9 @@ const styles = StyleSheet.create({
     color: "#6C757D",
   },
   loginLink: {
-    color: "#5D65B0",
+    color: "#F00",
     fontWeight: "600",
+    textDecorationLine: "underline",
   },
 });
 

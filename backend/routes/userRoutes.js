@@ -1,30 +1,43 @@
 const express = require('express');
 const router = express.Router();
 const emailValidator = require('../middlewares/emailValidationMiddleware');
-
+const {register,login}=require("../controllers/user-controllers")
 // Updated registration route
-router.post('/register', emailValidator, async (req, res) => {
-  try {
-    const { name, email, password, role } = req.body;
-    
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ error: "Email already registered" });
-    }
-
-    // Create new user
-    const user = new User({ name, email, password, role });
-    await user.save();
-
-    res.status(201).json({
-      message: "Registration successful! Please login",
-      user: { id: user._id, email: user.email, role: user.role }
-    });
-    
-  } catch (error) {
-    res.status(500).json({ error: "Registration failed" });
-  }
-});
-
+router.post('/register', emailValidator,register);
+router.post('/login', emailValidator,login);
 module.exports = router;
+
+
+ 
+
+
+
+
+
+// const express = require("express");
+// const router = express.Router();
+// const { 
+//   register, 
+//   login, 
+//   getMe, 
+//   updateMe, 
+//   deleteUser,
+//   assignPatientToDoctor,
+//   logout 
+// } = require("../controllers/userController");
+// const { protect, restrictTo } = require("../middleware/authMiddleware");
+
+// // Public routes
+// router.post("/register", register);
+// router.post("/login", login);
+
+// // Protected routes
+// router.get("/me", protect, getMe);
+// router.patch("/updateMe", protect, updateMe);
+// router.get("/logout", protect, logout);
+
+// // Admin-only routes
+// router.delete("/:id", protect, restrictTo("admin"), deleteUser);
+// router.post("/assign", protect, restrictTo("admin"), assignPatientToDoctor);
+
+// module.exports = router;

@@ -1,10 +1,5 @@
 {
   "expo": {
-    "extra": {
-      "IP_ADDRESS": "192.168.8.102",
-      "API_URL": "https://api.example.com",
-      "GOOGLE_MAPS_API_KEY": "your-google-maps-key"
-    },
     "name": "elderly-care-app",
     "slug": "elderly-care-app",
     "version": "1.0.0",
