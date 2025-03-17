@@ -3,6 +3,8 @@ import { View, TextInput, Text, StyleSheet, TouchableOpacity, Image } from "reac
 import axios from "axios";
 import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
+import { Ionicons } from '@expo/vector-icons'; // Import Ionicons
+
 const IP_ADDRESS = Constants.expoConfig.extra.IP_ADDRESS;
 
 const Login = ({ navigation }) => {
@@ -10,6 +12,7 @@ const Login = ({ navigation }) => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // State to toggle password visibility
 
   const isValidEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -48,6 +51,10 @@ const Login = ({ navigation }) => {
     navigation.navigate("Signup");
   };
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
     <LinearGradient
       colors={['#201919', '#810202']}
@@ -57,7 +64,7 @@ const Login = ({ navigation }) => {
     >
       <View style={styles.loginSection}>
         <View style={{ alignItems: "center", marginBottom: 20, marginTop: 10 }}>
-          <Image source={require("../assets/icons/profile.png")} />
+          <Image source={require("../assets/icons/profile.png")}  />
         </View>
         <Text style={styles.title}>Welcome Back</Text>
 
@@ -71,15 +78,27 @@ const Login = ({ navigation }) => {
           placeholderTextColor="#676054"
         />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoCapitalize="none"
-          placeholderTextColor="#676054"
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword} // Toggle based on showPassword
+            autoCapitalize="none"
+            placeholderTextColor="#676054"
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={togglePasswordVisibility}
+          >
+            <Ionicons
+              name={showPassword ? "eye" : "eye-off"}
+              size={24}
+              color="#bbb7b0" // Match your input text color
+            />
+          </TouchableOpacity>
+        </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {success ? <Text style={styles.success}>{success}</Text> : null}
@@ -132,6 +151,24 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     fontSize: 16,
     elevation: 2,
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 50,
+    backgroundColor: "#333333",
+    borderRadius: 8,
+    marginBottom: 15,
+    elevation: 2,
+  },
+  passwordInput: {
+    flex: 1,
+    color: "#bbb7b0",
+    paddingHorizontal: 15,
+    fontSize: 16,
+  },
+  eyeIcon: {
+    padding: 10,
   },
   button: {
     backgroundColor: "#F00",

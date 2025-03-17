@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const emailValidator = require('../middlewares/emailValidationMiddleware');
-const {register,login}=require("../controllers/user-controllers")
-// Updated registration route
-router.post('/register', emailValidator,register);
-router.post('/login', emailValidator,login);
-module.exports = router;
+const { register, verifyOTP, login } = require("../controllers/user-controllers");
 
+router.post('/register', emailValidator, register);
+router.post('/verify-otp', verifyOTP);
+router.post('/login', emailValidator, login);
+
+module.exports = router;
 
  
 

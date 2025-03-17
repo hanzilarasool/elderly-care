@@ -6,7 +6,7 @@ const rateLimit = require('express-rate-limit');
 const mongoose=require("mongoose");
 // Enable CORS for all origins
 app.use(cors());
-
+ 
 // Middleware
 app.use(express.json());
 // Connect to MongoDB

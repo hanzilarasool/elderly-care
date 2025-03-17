@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 const ProfileScreen = ({ navigation }) => {
   // Static doctor data
   const doctorProfile = {
-    name: "DR.Hanzila Rasool",
+    name: "DR.Shabnum",
     specialization: "Geriatric Medicine",
     hospital: "City General Hospital",
     experience: "15 years",

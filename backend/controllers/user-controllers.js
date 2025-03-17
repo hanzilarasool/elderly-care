@@ -1,8 +1,11 @@
+
 // controllers/userController.js
 const User = require("../models/user-model");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const nodemailer = require("nodemailer");
 require("dotenv").config();
+
 // Helper: Generate JWT Token
 const signToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, {
@@ -10,29 +13,101 @@ const signToken = (id, role) => {
   });
 };
 
-// Register User
+// In-memory OTP store (use Redis or MongoDB in production)
+const otpStore = {};
+
+// Nodemailer configuration (using Gmail as an example)
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER, // Your Gmail address
+    pass: process.env.EMAIL_PASS, // Your Gmail App Password
+  },
+});
+
+// Generate a 6-digit OTP
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Send OTP via email
+const sendOTPEmail = async (email, otp) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: "Your OTP for Elderly Care Registration",
+    text: `Your OTP is ${otp}. It is valid for 10 minutes.`,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`OTP sent to ${email}`);
+  } catch (err) {
+    console.error("Error sending OTP email:", err);
+    throw err;
+  }
+};
+
+// Register User (Step 1: Send OTP)
 const register = async (req, res) => {
   try {
-    const { name, email, password, role,specialization } = req.body;
-    
+    const { name, email, password, role, specialization } = req.body;
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: "Email already registered" });
     }
 
-    const user = await User.create({ name, email, password, role,specialization });
+    // Generate and store OTP
+    const otp = generateOTP();
+    otpStore[email] = { otp, expires: Date.now() + 10 * 60 * 1000 }; // 10-minute expiry
+
+    // Send OTP email
+    await sendOTPEmail(email, otp);
+
+    res.status(200).json({
+      status: "success",
+      message: "OTP sent to your email. Please verify to complete registration.",
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      error: error.message,
+    });
+  }
+};
+
+// Verify OTP and Complete Registration (Step 2)
+const verifyOTP = async (req, res) => {
+  try {
+    const { name, email, password, role, specialization, otp } = req.body;
+
+    // Validate OTP
+    const storedOTP = otpStore[email];
+    if (!storedOTP || storedOTP.otp !== otp || Date.now() > storedOTP.expires) {
+      return res.status(400).json({ error: "Invalid or expired OTP" });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
+
+    const user = await User.create({ name, email, password, role, specialization });
     user.password = undefined; // Remove password from output
+
+    // Clear OTP from store
+    delete otpStore[email];
 
     res.status(201).json({
       status: "success",
       message: "Registration successful! Please login",
-      user
+      user,
     });
-    
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       status: "error",
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -42,28 +117,24 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // 1) Check if email and password exist
     if (!email || !password) {
       return res.status(400).json({
         status: "fail",
-        error: "Please provide email and password"
+        error: "Please provide email and password",
       });
     }
 
-    // 2) Check if user exists && password is correct
     const user = await User.findOne({ email }).select("+password");
 
     if (!user || !(await user.correctPassword(password, user.password))) {
       return res.status(401).json({
         status: "fail",
-        error: "Incorrect email or password"
+        error: "Incorrect email or password",
       });
     }
 
-    // 3) Generate JWT Token
     const token = signToken(user._id, user.role);
-    
-    // 4) Send response with token
+
     res.status(200).json({
       status: "success",
       token,
@@ -71,14 +142,13 @@ const login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
-
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       status: "error",
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -87,15 +157,15 @@ const login = async (req, res) => {
 const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
-    
+
     res.status(200).json({
       status: "success",
-      user
+      user,
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       status: "error",
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -103,33 +173,28 @@ const getMe = async (req, res) => {
 // Update User Profile
 const updateMe = async (req, res) => {
   try {
-    // 1) Filter allowed fields
     const filteredBody = {
       name: req.body.name,
-      email: req.body.email
+      email: req.body.email,
     };
 
-    // 2) If password update requested
     if (req.body.password) {
       filteredBody.password = await bcrypt.hash(req.body.password, 12);
     }
 
-    // 3) Update user
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      filteredBody,
-      { new: true, runValidators: true }
-    );
+    const updatedUser = await User.findByIdAndUpdate(req.user.id, filteredBody, {
+      new: true,
+      runValidators: true,
+    });
 
     res.status(200).json({
       status: "success",
-      user: updatedUser
+      user: updatedUser,
     });
-
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       status: "error",
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -140,12 +205,12 @@ const deleteUser = async (req, res) => {
     await User.findByIdAndDelete(req.params.id);
     res.status(204).json({
       status: "success",
-      data: null
+      data: null,
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       status: "error",
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -155,25 +220,23 @@ const assignPatientToDoctor = async (req, res) => {
   try {
     const { doctorId, patientId } = req.body;
 
-    // 1) Check if both users exist
     const doctor = await User.findById(doctorId);
     const patient = await User.findById(patientId);
 
     if (!doctor || doctor.role !== "doctor") {
       return res.status(404).json({
         status: "fail",
-        error: "Doctor not found"
+        error: "Doctor not found",
       });
     }
 
     if (!patient || patient.role !== "patient") {
       return res.status(404).json({
         status: "fail",
-        error: "Patient not found"
+        error: "Patient not found",
       });
     }
 
-    // 2) Update doctor's patients and patient's doctor
     if (!doctor.patients.includes(patientId)) {
       doctor.patients.push(patientId);
       await doctor.save();
@@ -186,32 +249,32 @@ const assignPatientToDoctor = async (req, res) => {
       status: "success",
       message: "Patient assigned to doctor successfully",
       doctor,
-      patient
+      patient,
     });
-
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       status: "error",
-      error: error.message 
+      error: error.message,
     });
   }
 };
 
-// Logout User (Token Invalidation)
+// Logout User
 const logout = (req, res) => {
   res.status(200).json({
     status: "success",
     token: "",
-    message: "Logged out successfully"
+    message: "Logged out successfully",
   });
 };
 
 module.exports = {
   register,
+  verifyOTP,
   login,
   getMe,
   updateMe,
   deleteUser,
   assignPatientToDoctor,
-  logout
+  logout,
 };
