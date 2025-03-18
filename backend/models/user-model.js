@@ -53,6 +53,12 @@ const userSchema = new mongoose.Schema({
     diseases: [String],
     notes: String
   }],
+
+  alerts: [{
+    message: String,
+    date: { type: Date, default: Date.now },
+    dismissed: { type: Boolean, default: false },
+  }],
   // Admin-specific fields (can be extended)
   createdAt: {
     type: Date,

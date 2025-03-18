@@ -6,6 +6,7 @@ const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 require("dotenv").config();
 
+
 // Helper: Generate JWT Token
 const signToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, {
@@ -268,6 +269,132 @@ const logout = (req, res) => {
   });
 };
 
+
+// Add this to user-controller.js
+const updatePatientMedicalHistory = async (req, res) => {
+  try {
+    const { patientId, vitals, diseases, notes } = req.body;
+
+    // Check if the requester is a doctor or admin
+    if (req.user.role !== 'doctor' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Unauthorized: Only doctors or admins can update medical history' });
+    }
+
+    const patient = await User.findById(patientId);
+    if (!patient || patient.role !== 'patient') {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+
+    // Add new medical history entry
+    const newHistory = {
+      date: new Date(),
+      vitals: vitals || {},
+      diseases: diseases || [],
+      notes: notes || '',
+    };
+    patient.medicalHistory.push(newHistory);
+    await patient.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Medical history updated successfully',
+      medicalHistory: patient.medicalHistory,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+    });
+  }
+};
+// Get All Users (Admin Only)
+const getAllUsers = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Unauthorized: Only admins can access this route' });
+    }
+
+    const users = await User.find().select('-password'); // Exclude passwords
+    res.status(200).json({
+      status: 'success',
+      users,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+    });
+  }
+};
+const getDoctorAlerts = async (req, res) => {
+  try {
+    if (req.user.role !== 'doctor') {
+      return res.status(403).json({ error: 'Unauthorized: Only doctors can view alerts' });
+    }
+    const patients = await User.find({ doctor: req.user.id });
+    const alerts = [];
+    patients.forEach(patient => {
+      if (!patient.doctor) {
+        alerts.push({ patientId: patient._id, message: 'Unassigned patient', severity: 'high' });
+      }
+      patient.medicalHistory.forEach(history => {
+        if (history.vitals?.heartRate > 100 || history.vitals?.heartRate < 60) {
+          alerts.push({ patientId: patient._id, message: `Abnormal heart rate: ${history.vitals.heartRate}`, severity: 'critical' });
+        }
+      });
+    });
+    res.status(200).json({ status: 'success', alerts });
+  } catch (error) {
+    res.status(500).json({ status: 'error', error: error.message });
+  }
+};
+
+// Alerts
+// Get Doctor's Patient Alerts
+const getPatientAlerts = async (req, res) => {
+  try {
+    if (req.user.role !== 'doctor') {
+      return res.status(403).json({ error: 'Unauthorized: Only doctors can view alerts' });
+    }
+    const doctor = await User.findById(req.user.id).populate('patients', 'name alerts');
+    const alerts = doctor.patients.flatMap(patient => 
+      patient.alerts.filter(alert => !alert.dismissed).map(alert => ({
+        _id: alert._id,
+        patientId: patient._id,
+        patientName: patient.name,
+        message: alert.message,
+        date: alert.date,
+      }))
+    );
+    res.status(200).json({ status: 'success', alerts });
+  } catch (error) {
+    res.status(500).json({ status: 'error', error: error.message });
+  }
+};
+
+// Dismiss Alert
+const dismissAlert = async (req, res) => {
+  try {
+    const { patientId, alertId } = req.body;
+    if (req.user.role !== 'doctor') {
+      return res.status(403).json({ error: 'Unauthorized: Only doctors can dismiss alerts' });
+    }
+    const patient = await User.findById(patientId);
+    if (!patient || patient.role !== 'patient') {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+    const alert = patient.alerts.id(alertId);
+    if (!alert) {
+      return res.status(404).json({ error: 'Alert not found' });
+    }
+    alert.dismissed = true;
+    await patient.save();
+    res.status(200).json({ status: 'success', message: 'Alert dismissed' });
+  } catch (error) {
+    res.status(500).json({ status: 'error', error: error.message });
+  }
+};
+
 module.exports = {
   register,
   verifyOTP,
@@ -277,4 +404,9 @@ module.exports = {
   deleteUser,
   assignPatientToDoctor,
   logout,
+  updatePatientMedicalHistory,
+  getAllUsers,
+  getDoctorAlerts,
+  getPatientAlerts,
+  dismissAlert,
 };

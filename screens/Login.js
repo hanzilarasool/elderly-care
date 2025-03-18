@@ -2,17 +2,18 @@ import React, { useState } from "react";
 import { View, TextInput, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import axios from "axios";
 import { LinearGradient } from 'expo-linear-gradient';
-import Constants from 'expo-constants';
-import { Ionicons } from '@expo/vector-icons'; // Import Ionicons
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // For token storage
+import Constants from "expo-constants";
 
 const IP_ADDRESS = Constants.expoConfig.extra.IP_ADDRESS;
-
+console.log("ip addres login page",IP_ADDRESS)
 const Login = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // State to toggle password visibility
+  const [showPassword, setShowPassword] = useState(false);
 
   const isValidEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -36,11 +37,25 @@ const Login = ({ navigation }) => {
 
       const response = await axios.post(`http://${IP_ADDRESS}:5000/api/user/login`, {
         email,
-        password
+        password,
       });
 
+      const { token, user } = response.data; // Get token and user data from response
+      await AsyncStorage.setItem('token', token); // Store token
+      await AsyncStorage.setItem('user', JSON.stringify(user)); // Store user data
+
       setSuccess("Login successful!");
-      setTimeout(() => navigation.navigate("Profile"), 1500);
+
+      // Redirect based on role
+      setTimeout(() => {
+        if (user.role === 'doctor') {
+          navigation.navigate("DoctorProfile");
+        } else if (user.role === 'patient') {
+          navigation.navigate("PatientProfile");
+        } else if (user.role === 'admin') {
+          navigation.navigate("AdminDashboard");
+        }
+      }, 1500);
     } catch (err) {
       const backendError = err.response?.data?.error;
       setError(backendError || "Login failed. Please try again.");
@@ -56,15 +71,10 @@ const Login = ({ navigation }) => {
   };
 
   return (
-    <LinearGradient
-      colors={['#201919', '#810202']}
-      start={{ x: 0.48, y: 0 }}
-      end={{ x: 0.99, y: 0.41 }}
-      style={styles.container}
-    >
+    <LinearGradient colors={['white', '#F5F5F5']} start={{ x: 0.48, y: 0 }} end={{ x: 0.99, y: 0.41 }} style={styles.container}>
       <View style={styles.loginSection}>
-        <View style={{ alignItems: "center", marginBottom: 20, marginTop: 10 }}>
-          <Image source={require("../assets/icons/profile.png")}  />
+        <View style={{ alignItems: "center", marginBottom: 20, marginTop: 10, width: "56", height: "56", display: "flex", justifyContent: "center", marginLeft: "auto", marginRight: "auto" }}>
+          <Image source={require("../assets/icons/profile.png")} style={{ width: 54, height: 54 }} />
         </View>
         <Text style={styles.title}>Welcome Back</Text>
 
@@ -84,19 +94,12 @@ const Login = ({ navigation }) => {
             placeholder="Password"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry={!showPassword} // Toggle based on showPassword
+            secureTextEntry={!showPassword}
             autoCapitalize="none"
             placeholderTextColor="#676054"
           />
-          <TouchableOpacity
-            style={styles.eyeIcon}
-            onPress={togglePasswordVisibility}
-          >
-            <Ionicons
-              name={showPassword ? "eye" : "eye-off"}
-              size={24}
-              color="#bbb7b0" // Match your input text color
-            />
+          <TouchableOpacity style={styles.eyeIcon} onPress={togglePasswordVisibility}>
+            <Ionicons name={showPassword ? "eye" : "eye-off"} size={24} color="#bbb7b0" />
           </TouchableOpacity>
         </View>
 
@@ -109,15 +112,12 @@ const Login = ({ navigation }) => {
 
         <Text style={styles.signupText}>
           Don't have an account?{" "}
-          <Text style={styles.signupLink} onPress={handleSignupRedirect}>
-            Sign Up
-          </Text>
+          <Text style={styles.signupLink} onPress={handleSignupRedirect}>Sign Up</Text>
         </Text>
       </View>
     </LinearGradient>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -127,13 +127,9 @@ const styles = StyleSheet.create({
   loginSection: {
     borderRadius: 5,
     width: "100%",
-    backgroundColor: "#222222",
+    backgroundColor: "rgba(0,0,0,0.45)",
+    borderTopRightRadius: 15,
     padding: 14,
-    shadowColor: "#F00",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-    elevation: 5,
   },
   title: {
     fontSize: 24,
@@ -144,8 +140,8 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 50,
-    backgroundColor: "#333333",
-    color: "#bbb7b0",
+    backgroundColor: "white",
+    color: "#6e6e6d",
     borderRadius: 8,
     paddingHorizontal: 15,
     marginBottom: 15,
@@ -156,28 +152,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     height: 50,
-    backgroundColor: "#333333",
-    borderRadius: 8,
+    width: "100%",
+    backgroundColor: "white",
+    borderRadius: 10,
     marginBottom: 15,
-    elevation: 2,
   },
   passwordInput: {
     flex: 1,
-    color: "#bbb7b0",
+    backgroundColor: "white",
+    color: "black",
     paddingHorizontal: 15,
     fontSize: 16,
+    borderRadius: 10,
   },
   eyeIcon: {
     padding: 10,
   },
   button: {
-    backgroundColor: "#F00",
+    backgroundColor: "black",
     paddingVertical: 15,
     borderRadius: 8,
     marginTop: 10,
   },
   buttonText: {
-    color: "#FFFFFF",
+    color: "white",
     textAlign: "center",
     fontSize: 16,
     fontWeight: "600",
@@ -195,10 +193,10 @@ const styles = StyleSheet.create({
   signupText: {
     textAlign: "center",
     marginTop: 25,
-    color: "#6C757D",
+    color: "white",
   },
   signupLink: {
-    color: "#F00",
+    color: "#D3D3D3",
     fontWeight: "600",
     textDecorationLine: "underline",
   },

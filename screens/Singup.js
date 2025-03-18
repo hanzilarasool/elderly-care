@@ -2,17 +2,19 @@ import React, { useState, useEffect, useRef } from "react";
 import { View, TextInput, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import axios from "axios";
 import { LinearGradient } from 'expo-linear-gradient';
-import Constants from 'expo-constants';
+
 import { Ionicons } from '@expo/vector-icons'; // Import Ionicons
 
-const IP_ADDRESS = Constants.expoConfig.extra.IP_ADDRESS;
+import Constants from "expo-constants";
 
+const IP_ADDRESS = Constants.expoConfig.extra.IP_ADDRESS;
+console.log("ip addres signup page",IP_ADDRESS)
 const Signup = ({ navigation }) => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
-    role: "",
+    role: "", 
     specialization: "", // Optional field for doctors
   });
   const [otp, setOtp] = useState(['', '', '', '', '', '']); // 6-digit OTP array
