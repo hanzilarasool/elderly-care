@@ -71,7 +71,7 @@ const Login = ({ navigation }) => {
   };
 
   return (
-    <LinearGradient colors={['white', '#F5F5F5']} start={{ x: 0.48, y: 0 }} end={{ x: 0.99, y: 0.41 }} style={styles.container}>
+    <LinearGradient  colors={['#E0F7FA', '#B2EBF2']}  start={{ x: 0.48, y: 0 }} end={{ x: 0.99, y: 0.41 }} style={styles.container}>
       <View style={styles.loginSection}>
         <View style={{ alignItems: "center", marginBottom: 20, marginTop: 10, width: "56", height: "56", display: "flex", justifyContent: "center", marginLeft: "auto", marginRight: "auto" }}>
           <Image source={require("../assets/icons/profile.png")} style={{ width: 54, height: 54 }} />

@@ -356,13 +356,35 @@ const logout = (req, res) => {
 // };
 
 // Get All Users (Admin Only)
+// const getAllUsers = async (req, res) => {
+//   try {
+//     if (req.user.role !== 'admin') {
+//       return res.status(403).json({ error: 'Unauthorized: Only admins can access this route' });
+//     }
+
+//     const users = await User.find().select('-password');
+//     res.status(200).json({
+//       status: 'success',
+//       users,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       status: 'error',
+//       error: error.message,
+//     });
+//   }
+// };
 const getAllUsers = async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Unauthorized: Only admins can access this route' });
     }
 
-    const users = await User.find().select('-password');
+    const users = await User.find()
+      .select('-password') // Exclude password field
+      .populate('doctor', 'name') // Populate doctor's name for patients
+      .populate('patients', 'name'); // Populate patients' names for doctors
+
     res.status(200).json({
       status: 'success',
       users,
@@ -374,7 +396,6 @@ const getAllUsers = async (req, res) => {
     });
   }
 };
-
 // Get Doctor Alerts
 const getDoctorAlerts = async (req, res) => {
   try {
@@ -587,6 +608,46 @@ const uploadDocument = async (req, res) => {
     });
   }
 };
+// Unassign Patient from Doctor (Admin Only)
+const unassignPatientFromDoctor = async (req, res) => {
+  try {
+    const { patientId } = req.body;
+
+    const patient = await User.findById(patientId);
+    if (!patient || patient.role !== 'patient') {
+      return res.status(404).json({
+        status: 'fail',
+        error: 'Patient not found',
+      });
+    }
+
+    if (!patient.doctor) {
+      return res.status(400).json({
+        status: 'fail',
+        error: 'Patient is not assigned to any doctor',
+      });
+    }
+
+    const doctor = await User.findById(patient.doctor);
+    if (doctor) {
+      doctor.patients = doctor.patients.filter(p => p.toString() !== patientId);
+      await doctor.save();
+    }
+
+    patient.doctor = null;
+    await patient.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Patient unassigned successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
   register,
@@ -605,4 +666,5 @@ module.exports = {
   getPatientAlerts,
   dismissAlert,
   updatePatientProfile, // Export the new function
+  unassignPatientFromDoctor,
 };

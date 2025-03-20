@@ -124,7 +124,7 @@ const Signup = ({ navigation }) => {
  
   
 <LinearGradient
-  colors={['white', '#F5F5F5']} // Whitish grey gradient colors
+ colors={['#E0F7FA', '#B2EBF2']} // Whitish grey gradient colors
   start={{ x: 0.48, y: 0 }}
   end={{ x: 0.99, y: 0.41 }}
   style={styles.container}

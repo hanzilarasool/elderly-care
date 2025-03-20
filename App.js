@@ -13,6 +13,7 @@ import PatientDetails from './screens/PatientDetails';
 import EditPatient from './screens/EditPatient'; // New screen
 import Reports from './screens/Reports'; // Placeholder
 import Alerts from './screens/Alerts'; // Placeholder
+import PatientManagement from './screens/PatientManagement'; // New screen
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -56,6 +57,7 @@ export default function App() {
         />
         <Stack.Screen name="PatientProfile" component={PatientProfile} />
         <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
+        <Stack.Screen name="PatientManagement" component={PatientManagement}/>
         <Stack.Screen name="PatientDetails" component={PatientDetails} />
         <Stack.Screen name="EditPatient" component={EditPatient} />
       </Stack.Navigator>

@@ -32,6 +32,7 @@ const {
   getPatientAlerts,
   dismissAlert,
   updatePatientProfile, // Add the new controller function
+  unassignPatientFromDoctor
 } = require('../controllers/user-controller');
 
 // Public Routes
@@ -59,5 +60,7 @@ router.post('/patient/dismiss-alert', protect, dismissAlert);
 router.get('/all', protect, restrictTo('admin'), getAllUsers);
 router.delete('/user/:id', protect, restrictTo('admin'), deleteUser);
 router.post('/assign-patient', protect, restrictTo('admin'), assignPatientToDoctor);
+// unassign-patient route
+router.post('/unassign-patient', protect, restrictTo('admin'), unassignPatientFromDoctor);
 
 module.exports = router;

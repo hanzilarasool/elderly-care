@@ -1,12 +1,11 @@
 // frontend/screens/AdminDashboard.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal ,Image,Button} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, Image, Button } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { Picker } from '@react-native-picker/picker';
 import Constants from "expo-constants";
-// import { Button } from 'react-native-web';
 
 const IP_ADDRESS = Constants.expoConfig.extra.IP_ADDRESS;
 
@@ -26,7 +25,7 @@ const AdminDashboard = ({ navigation }) => {
         });
         const users = response.data.users || [];
         setDoctors(users.filter(user => user.role === 'doctor'));
-        setPatients(users.filter(user => user.role === 'patient'));
+        setPatients(users.filter(user => user.role === 'patient' && !user.doctor)); // Filter unassigned patients only
       } catch (error) {
         console.error('Error fetching users:', error);
       }
@@ -49,7 +48,7 @@ const AdminDashboard = ({ navigation }) => {
       });
       const users = response.data.users || [];
       setDoctors(users.filter(user => user.role === 'doctor'));
-      setPatients(users.filter(user => user.role === 'patient'));
+      setPatients(users.filter(user => user.role === 'patient' && !user.doctor)); // Update to show only unassigned patients
       setSelectedDoctor('');
       setSelectedPatient('');
     } catch (error) {
@@ -68,7 +67,7 @@ const AdminDashboard = ({ navigation }) => {
       });
       const users = response.data.users || [];
       setDoctors(users.filter(user => user.role === 'doctor'));
-      setPatients(users.filter(user => user.role === 'patient'));
+      setPatients(users.filter(user => user.role === 'patient' && !user.doctor)); // Update to show only unassigned patients
     } catch (error) {
       console.error('Error deleting user:', error);
     }
@@ -77,8 +76,8 @@ const AdminDashboard = ({ navigation }) => {
   const renderDoctor = ({ item }) => (
     <View style={styles.userCard}>
       <View>
-      <Text style={styles.userName}>{item.name} (Doctor)</Text>
-      <Text style={styles.userDetail}>Specialization: {item.specialization || 'N/A'}</Text>
+        <Text style={styles.userName}>{item.name} (Doctor)</Text>
+        <Text style={styles.userDetail}>Specialization: {item.specialization || 'N/A'}</Text>
       </View>
       <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteUser(item._id)}>
         <Text style={styles.deleteButtonText}>Delete</Text>
@@ -88,26 +87,30 @@ const AdminDashboard = ({ navigation }) => {
 
   const renderPatient = ({ item }) => (
     <View style={styles.userCard}>
-      <View><Text style={styles.userName}>{item.name} (Patient)</Text>
-      <Text style={styles.userDetail}>Assigned Doctor: {item.doctor ? item.doctor.name : 'None'}</Text></View>
+      <View>
+        <Text style={styles.userName}>{item.name} (Patient)</Text>
+        <Text style={styles.userDetail}>Assigned Doctor: None</Text> {/* All patients here are unassigned */}
+      </View>
       <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteUser(item._id)}>
         <Text style={styles.deleteButtonText}>Delete</Text>
       </TouchableOpacity>
     </View>
   );
 
+  // Filter out patients who already have a doctor assigned for the modal (already done)
+  const unassignedPatients = patients.filter(patient => !patient.doctor);
+
   return (
     <LinearGradient colors={['#E0F7FA', '#B2EBF2']} style={styles.container}>
       <View style={styles.dashboardSection}>
-        {/* <Text style={styles.title}>Admin Dashboard</Text> */}
-
-      <View>
-      <TouchableOpacity style={styles.button} onPress={() => setModalVisible(true)}>
-          <Text style={styles.buttonText}>Assign Patient to Doctor click!</Text>
-          <Image source={require('../assets/icons/doctor.png')} style={styles.imageIcon} />
-        </TouchableOpacity>
-        <Button title='Edit' />
-      </View>
+        <View>
+          <TouchableOpacity style={styles.button} onPress={() => setModalVisible(true)}>
+            <Text style={styles.buttonText}>Assign Patient to Doctor click!</Text>
+            <Image source={require('../assets/icons/doctor.png')} style={styles.imageIcon} />
+          </TouchableOpacity> 
+          <Button title="PM Edit" onPress={() => navigation.navigate('PatientManagement')} />
+         
+        </View>
 
         <Text style={styles.sectionTitle}>Doctors</Text>
         <FlatList
@@ -117,12 +120,12 @@ const AdminDashboard = ({ navigation }) => {
           ListEmptyComponent={<Text style={styles.emptyText}>No doctors available.</Text>}
         />
 
-        <Text style={styles.sectionTitle}>Patients</Text>
+        <Text style={styles.sectionTitle}>Pending Patients</Text> {/* Updated title */}
         <FlatList
-          data={patients}
+          data={patients} // Already filtered to unassigned patients
           renderItem={renderPatient}
           keyExtractor={(item) => item._id}
-          ListEmptyComponent={<Text style={styles.emptyText}>No patients available.</Text>}
+          ListEmptyComponent={<Text style={styles.emptyText}>No pending patients available.</Text>}
         />
       </View>
 
@@ -150,26 +153,25 @@ const AdminDashboard = ({ navigation }) => {
               style={styles.picker}
             >
               <Picker.Item label="Select a patient" value="" />
-              {patients.map(patient => (
+              {unassignedPatients.map(patient => (
                 <Picker.Item key={patient._id} label={patient.name} value={patient._id} />
               ))}
             </Picker>
 
-           <View style={{display:"flex",flexDirection:"row",justifyContent:"space-between"}}>
-           <TouchableOpacity style={styles.button} onPress={handleAssignPatient}>
-              <Text style={styles.buttonText}>Assign</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-           </View>
+            <View style={{ display: "flex", flexDirection: "row", justifyContent: "space-between" }}>
+              <TouchableOpacity style={styles.button} onPress={handleAssignPatient}>
+                <Text style={styles.buttonText}>Assign</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
     </LinearGradient>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -188,7 +190,7 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#00796B',
-    paddingVertical: 10,
+    paddingVertical: 7,
     paddingHorizontal: 20,
     borderRadius: 8,
     marginVertical: 2,
@@ -199,7 +201,7 @@ const styles = StyleSheet.create({
     justifyContent:"space-between",alignItems:"center",
     // elevation: 3,
   },
-  imageIcon: {width:35,height:35},
+  imageIcon: {width:26,height:26},
   buttonText: {
     color: 'white',
     textAlign: 'center',
