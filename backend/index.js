@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs'); // Add this for file system operations
+const chatRouter=require("./routes/chat-routes");
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -50,6 +51,7 @@ const upload = multer({ storage });
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+app.use("/api/chat",chatRouter);
 app.get('/', (req, res) => {
   res.status(200).json({
     message: 'Server is running',

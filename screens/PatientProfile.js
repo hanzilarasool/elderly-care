@@ -1,6 +1,6 @@
 // frontend/screens/PatientProfile.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Image, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Image, StyleSheet, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -18,6 +18,7 @@ const PatientProfile = ({ navigation }) => {
   const [gender, setGender] = useState('');
   const [profileImage, setProfileImage] = useState(null);
   const [medicalHistory, setMedicalHistory] = useState([]);
+  const [selectedDocument, setSelectedDocument] = useState(null); // For viewing documents
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -104,12 +105,11 @@ const PatientProfile = ({ navigation }) => {
   };
 
   const renderCheckupReport = ({ item, index }) => {
-    const vitalEntries = Object.entries(item.vitals || {});
-    const vitalData = vitalEntries.map(([vital, value], vitalIndex) => ({
-      srNo: index * vitalEntries.length + vitalIndex + 1,
-      vital: vital.charAt(0).toUpperCase() + vital.slice(1),
-      report: value,
-      document: item.documents.length > 0 ? 'View' : 'N/A',
+    const vitalData = item.vitals.map((vital, vitalIndex) => ({
+      srNo: vitalIndex + 1,
+      vital: vital.name.charAt(0).toUpperCase() + vital.name.slice(1),
+      report: vital.value,
+      document: vital.document || 'N/A',
     }));
 
     return (
@@ -119,9 +119,9 @@ const PatientProfile = ({ navigation }) => {
             <Text style={styles.reportText}>{vitalItem.srNo}</Text>
             <Text style={styles.reportText}>{vitalItem.vital}</Text>
             <Text style={styles.reportText}>{vitalItem.report}</Text>
-            {vitalItem.document === 'View' ? (
-              <TouchableOpacity onPress={() => alert('Document viewing not implemented yet')}>
-                <Text style={[styles.reportText, { color: '#00796B' }]}>{vitalItem.document}</Text>
+            {vitalItem.document !== 'N/A' ? (
+              <TouchableOpacity onPress={() => setSelectedDocument(vitalItem.document)}>
+                <Text style={[styles.reportText, { color: '#00796B' }]}>View</Text>
               </TouchableOpacity>
             ) : (
               <Text style={styles.reportText}>{vitalItem.document}</Text>
@@ -178,12 +178,14 @@ const PatientProfile = ({ navigation }) => {
           ) : (
             <>
               <Text style={styles.name}>{name}</Text>
-              <Text style={styles.detail}>Age: {age || 'N/A'}</Text>
-              <Text style={styles.detail}>Gender: {gender || 'N/A'}</Text>
+            <View style={{flexDirection:"row",gap:10}}>  <Text style={styles.detail}>Age: {age || 'N/A'}</Text>
+            <View style={{backgroundColor:"white",width:2.5,height:17}}></View>
+            <Text style={styles.detail}>Gender: {gender || 'N/A'}</Text>
+            </View>
               <TouchableOpacity style={styles.medicalConditionButton}>
                 <Text style={styles.medicalConditionText}>
                   {medicalHistory.length > 0 && medicalHistory[0].diseases.length > 0
-                    ? medicalHistory[0].diseases.join(', ')
+                    ? medicalHistory[0].diseases.map(d => d.name).join(', ')
                     : 'No Medical Conditions'}
                 </Text>
               </TouchableOpacity>
@@ -194,7 +196,7 @@ const PatientProfile = ({ navigation }) => {
             style={styles.button}
             onPress={() => setIsEditing(!isEditing)}
           >
-            <Text style={styles.buttonText}>{isEditing ? 'Cancel' : 'Edit Profile'}</Text>
+            <View style={{display:"flex",flexDirection:"row"}}>{isEditing ? <Text style={styles.buttonText}>Cancel</Text> : <Text style={styles.buttonText}>Edit Profile</Text>}</View>
           </TouchableOpacity>
 
           {isEditing && (
@@ -215,9 +217,38 @@ const PatientProfile = ({ navigation }) => {
             renderItem={renderCheckupReport}
             keyExtractor={(item) => item._id}
             ListEmptyComponent={<Text style={styles.emptyText}>No medical history available.</Text>}
-            style={styles.medicalHistoryList} // Add explicit styling
+            style={styles.medicalHistoryList}
             contentContainerStyle={styles.medicalHistoryContent}
           />
+
+          {/* Document Viewer Modal */}
+          <Modal
+            visible={!!selectedDocument}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setSelectedDocument(null)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                {selectedDocument && (
+                  <>
+                    <Text style={styles.modalTitle}>Document Viewer</Text>
+                    <Image
+                      source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}` }}
+                      style={styles.documentImage}
+                      resizeMode="contain"
+                    />
+                    <TouchableOpacity
+                      style={styles.button}
+                      onPress={() => setSelectedDocument(null)}
+                    >
+                      <Text style={styles.buttonText}>Close</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </View>
+          </Modal>
         </View>
       ) : (
         <Text style={styles.loadingText}>Loading...</Text>
@@ -232,14 +263,15 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   profileSection: {
-    flex: 1, // Allow profileSection to take available space
+    flex: 1,
     alignItems: 'center',
-    width: '100%', // Ensure it spans the full width
+    width: '100%',
+    // backgroundColor:"red"
   },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 140,
+    height: 130,
+    borderRadius: 7,
     marginBottom: 10,
   },
   cameraIcon: {
@@ -285,15 +317,19 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#00796B',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
     borderRadius: 8,
-    marginVertical: 10,
+    marginVertical: 5,
+    flexDirection:"row"
+
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  
+
   },
   sectionTitle: {
     fontSize: 20,
@@ -309,7 +345,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#00796B',
     padding: 10,
     borderRadius: 8,
-    width: '100%', // Ensure header spans full width
+    width: '100%',
   },
   headerText: {
     flex: 1,
@@ -322,19 +358,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     backgroundColor: '#fff',
-    padding: 15, // Increased padding for better visibility
+    padding: 15,
     borderRadius: 8,
     marginBottom: 5,
     elevation: 2,
-    width: '100%', // Ensure row spans full width
-    minHeight: 50, // Ensure enough height for content
+    width: '100%',
+    minHeight: 50,
   },
   reportText: {
     flex: 1,
     fontSize: 14,
     color: '#333',
     textAlign: 'center',
-    paddingHorizontal: 5, // Add padding to prevent text overlap
+    paddingHorizontal: 5,
   },
   emptyText: {
     fontSize: 16,
@@ -349,11 +385,34 @@ const styles = StyleSheet.create({
     marginTop: 50,
   },
   medicalHistoryList: {
-    width: '100%', // Ensure FlatList takes full width
-    flexGrow: 0, // Prevent FlatList from growing infinitely
+    width: '100%',
+    flexGrow: 0,
   },
   medicalHistoryContent: {
-    paddingBottom: 20, // Add padding at the bottom for scroll
+    paddingBottom: 20,
+  },
+  // New styles for document viewer
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    width: '90%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  documentImage: {
+    width: '100%',
+    height: 400,
   },
 });
 

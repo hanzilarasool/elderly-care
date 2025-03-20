@@ -7,6 +7,7 @@ import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import Constants from "expo-constants";
+import ChatAssistantModal from '../components/ChatAssistantModal';
 
 const IP_ADDRESS = Constants.expoConfig.extra.IP_ADDRESS;
 
@@ -21,6 +22,8 @@ const DoctorProfile = ({ navigation }) => {
   const [patients, setPatients] = useState([]);
   const [filteredPatients, setFilteredPatients] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+// chat state management
+const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -137,6 +140,9 @@ const DoctorProfile = ({ navigation }) => {
 
   return (
     <LinearGradient colors={['#E0F7FA', '#B2EBF2']} style={styles.container}>
+
+      <View style={{position:"relative",height:"100%"}}>
+     
       {user && (
         <View style={styles.profileSection}>
           <View style={styles.profilePart}>
@@ -228,6 +234,18 @@ const DoctorProfile = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+      <TouchableOpacity 
+        style={styles.fab}
+        onPress={() => setShowChat(true)}
+      >
+        <Image source={require("../assets/icons/ai.png")} style={styles.aiIcon} />
+      </TouchableOpacity>
+
+      <ChatAssistantModal 
+        visible={showChat} 
+        onClose={() => setShowChat(false)}
+      />
+      </View>
     </LinearGradient>
   );
 };
@@ -409,6 +427,23 @@ backgroundColor:"white"
   cancelText: {
     color: '#666',
     textAlign: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 22,
+    right: 8,
+    backgroundColor: '#0288D1',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    zIndex: 100,
+  },
+  aiIcon: {
+    width: 32,
+    height: 29,
   },
 });
 

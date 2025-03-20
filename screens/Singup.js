@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
     borderColor: "#666",
   },
   button: {
-    backgroundColor: "black",
+    backgroundColor: "rgb(52, 193, 212)",
     paddingVertical: 15,
     borderRadius: 8,
     marginTop: 10,
@@ -387,12 +387,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   error: {
-    color: "#DC3545",
+    color: "#ed6673",
     marginBottom: 15,
     textAlign: "center",
   },
   success: {
-    color: "#28A745",
+    color: "#a9e3b7",
     marginBottom: 15,
     textAlign: "center",
   },

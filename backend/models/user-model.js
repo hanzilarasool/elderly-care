@@ -52,14 +52,35 @@ const userSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     },
-    vitals: {
-      type: Map, // Use Map to store dynamic key-value pairs (e.g., { "blood pressure": "120/80" })
-      of: String,
-    },
-    diseases: [String],
+    vitals: [{
+      name: {
+        type: String,
+        required: true // e.g., "blood pressure", "heart rate"
+      },
+      value: {
+        type: String,
+        required: true // e.g., "120/80", "72"
+      },
+      document: {
+        type: String, // URL/path of document associated with this vital
+      },
+      status: {
+        type: String,
+        enum: ['Normal', 'High', 'Low', 'OK', 'Danger'],
+        default: 'Normal'
+      }
+    }],
+    diseases: [{
+      name: {
+        type: String,
+      },
+      document: {
+        type: String, // URL/path of document associated with this disease
+      }
+    }],
     notes: String,
-    documents: [String], // Store URLs/paths of uploaded documents
-    status: { // Add status field
+    documents: [String], // Additional documents not tied to specific vitals/diseases
+    status: { // Overall status for the medical history entry
       type: String,
       enum: ['Normal', 'High', 'Low', 'OK', 'Danger'],
       default: 'Normal'

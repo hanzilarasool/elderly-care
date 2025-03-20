@@ -1,6 +1,6 @@
 // frontend/screens/EditPatient.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, Modal, FlatList,StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, Modal, FlatList, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -24,6 +24,7 @@ const EditPatient = ({ route, navigation }) => {
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('');
   const [document, setDocument] = useState(null);
+  const [selectedDocument, setSelectedDocument] = useState(null); // For viewing existing documents
 
   useEffect(() => {
     const fetchPatient = async () => {
@@ -63,19 +64,16 @@ const EditPatient = ({ route, navigation }) => {
   const handleAddMedicalHistory = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const vitals = {};
-      if (vitalName && rate) {
-        vitals[vitalName.toLowerCase()] = rate;
-      }
+      const vitals = vitalName && rate ? [{ name: vitalName.toLowerCase(), value: rate, status: status || 'Normal' }] : [];
 
       const response = await axios.post(
         `http://${IP_ADDRESS}:5000/api/user/patient/medical-history`,
         {
           patientId,
           vitals,
-          diseases: diseases ? diseases.split(',').map(d => d.trim()) : [],
+          diseases: diseases ? diseases.split(',').map(d => ({ name: d.trim() })) : [],
           notes,
-          status,
+          status: status || 'Normal',
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -83,7 +81,8 @@ const EditPatient = ({ route, navigation }) => {
       if (document) {
         const formData = new FormData();
         formData.append('patientId', patientId);
-        formData.append('historyId', response.data.medicalHistory[0]._id); // Newest entry is at index 0
+        formData.append('historyId', response.data.medicalHistory[0]._id); // Newest entry
+        formData.append('vitalIndex', vitalName && rate ? 0 : undefined); // Attach to first vital if present
         formData.append('document', {
           uri: document,
           name: `report-${Date.now()}.${document.split('.').pop() || 'pdf'}`,
@@ -98,7 +97,7 @@ const EditPatient = ({ route, navigation }) => {
         });
       }
 
-      // Fetch updated patient data to reflect new medical history
+      // Fetch updated patient data
       const updatedResponse = await axios.get(`http://${IP_ADDRESS}:5000/api/user/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -119,12 +118,11 @@ const EditPatient = ({ route, navigation }) => {
   };
 
   const renderCheckupReport = ({ item, index }) => {
-    const vitalEntries = Object.entries(item.vitals || {});
-    const vitalData = vitalEntries.map(([vital, value], vitalIndex) => ({
-      srNo: index * vitalEntries.length + vitalIndex + 1,
-      vital: vital.charAt(0).toUpperCase() + vital.slice(1),
-      report: value,
-      document: item.documents.length > 0 ? 'View' : 'N/A',
+    const vitalData = item.vitals.map((vital, vitalIndex) => ({
+      srNo: vitalIndex + 1,
+      vital: vital.name.charAt(0).toUpperCase() + vital.name.slice(1),
+      report: vital.value,
+      document: vital.document ? vital.document : 'N/A',
     }));
 
     return (
@@ -134,12 +132,11 @@ const EditPatient = ({ route, navigation }) => {
             <Text style={styles.reportText}>{vitalItem.srNo}</Text>
             <Text style={styles.reportText}>{vitalItem.vital}</Text>
             <Text style={styles.reportText}>{vitalItem.report}</Text>
-            {vitalItem.document === 'View' ? (
-              <TouchableOpacity onPress={() => {
-                // Placeholder for document viewing logic
-                alert('Document viewing not implemented yet');
-              }}>
-                <Text style={[styles.reportText, { color: '#00796B' }]}>{vitalItem.document}</Text>
+            {vitalItem.document !== 'N/A' ? (
+              <TouchableOpacity
+                onPress={() => setSelectedDocument(vitalItem.document)}
+              >
+                <Text style={[styles.reportText, { color: '#00796B' }]}>View</Text>
               </TouchableOpacity>
             ) : (
               <Text style={styles.reportText}>{vitalItem.document}</Text>
@@ -154,6 +151,7 @@ const EditPatient = ({ route, navigation }) => {
     <LinearGradient colors={['#E0F7FA', '#B2EBF2']} style={styles.container}>
       {patient ? (
         <View style={styles.profileSection}>
+          <View style={styles.patientProfileSection}>
           <Image
             source={
               profileImage
@@ -162,9 +160,15 @@ const EditPatient = ({ route, navigation }) => {
             }
             style={styles.profileImage}
           />
+          <View style={styles.nameAgeGender}>
           <Text style={styles.name}>{name}</Text>
-          <Text style={styles.detail}>Age: {age}</Text>
+         <View style={styles.genderAge}>
+         <Text style={styles.detail}>Age: {age}</Text>
+         <View style={{width:2,height:18,backgroundColor:"white"}}></View>
           <Text style={styles.detail}>Gender: {gender}</Text>
+          </View>
+          </View>
+          </View>
 
           <Text style={styles.sectionTitle}>Medical History</Text>
           <View style={styles.reportHeader}>
@@ -187,6 +191,7 @@ const EditPatient = ({ route, navigation }) => {
         <Text style={styles.loadingText}>Loading...</Text>
       )}
 
+      {/* Add Medical History Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -235,10 +240,39 @@ const EditPatient = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Document Viewer Modal */}
+      <Modal
+        visible={!!selectedDocument}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setSelectedDocument(null)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            {selectedDocument && (
+              <>
+                <Text style={styles.modalTitle}>Document Viewer</Text>
+                <Image
+                  source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}` }}
+                  style={styles.documentImage}
+                  resizeMode="contain"
+                />
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={() => setSelectedDocument(null)}
+                >
+                  <Text style={styles.buttonText}>Close</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 };
-// Styles remain unchanged
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -247,11 +281,27 @@ const styles = StyleSheet.create({
   profileSection: {
     // alignItems: 'center',
   },
+  patientProfileSection:{
+backgroundColor:"rgba(0,0,0,0.1)",
+display:"flex",
+flexDirection:"row",
+alignItems:"center",
+height:140,
+gap:14
+
+
+  },
+
+  nameAgeGender:{width:"auto",gap:10},
+  name:{fontSize:22,fontWeight:"700"},
+  genderAge:{display:"flex",flexDirection:"row",gap:15},
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 10,
+    width: 130,
+    height: 130,
+    // borderRadius: 50,
+    borderRadius:12,
+    // marginBottom: 10,
+    
   },
   cameraIcon: {
     position: 'absolute',
@@ -365,27 +415,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
   },
-  reportHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#00796B',
-    padding: 10,
-    borderRadius: 8,
-  },
-  reportRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 5,
-    elevation: 2,
-  },
-  reportText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#333',
-    textAlign: 'center',
+  // New style for document viewer (only added, not modifying existing)
+  documentImage: {
+    width: '100%',
+    height: 400,
   },
 });
 

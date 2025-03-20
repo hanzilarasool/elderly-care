@@ -1,7 +1,6 @@
 // backend/seed.js
 const mongoose = require('mongoose');
 const User = require('./models/user-model');
-const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
 
 // Load environment variables
@@ -31,7 +30,7 @@ const seedData = async () => {
       role: 'admin',
       age: 40,
       gender: 'M',
-      profileImage: './uploads/admin-profile.png',
+      profileImage: '/uploads/admin-profile.png',
     });
     await admin.save();
     console.log('Admin seeded successfully');
@@ -46,7 +45,7 @@ const seedData = async () => {
         age: 35,
         gender: 'M',
         specialization: 'Cardiology',
-        profileImage: './uploads/doctor1-profile.png',
+        profileImage: '/uploads/doctor1-profile.png', // Male
         patients: [],
       },
       {
@@ -57,7 +56,7 @@ const seedData = async () => {
         age: 32,
         gender: 'F',
         specialization: 'Neurology',
-        profileImage: './uploads/doctor2-profile.png',
+        profileImage: '/uploads/doctor4-profile.png', // Female
         patients: [],
       },
       {
@@ -68,7 +67,7 @@ const seedData = async () => {
         age: 38,
         gender: 'M',
         specialization: 'Orthopedics',
-        profileImage: './uploads/doctor3-profile.png',
+        profileImage: '/uploads/doctor2-profile.png', // Male
         patients: [],
       },
       {
@@ -79,7 +78,7 @@ const seedData = async () => {
         age: 34,
         gender: 'F',
         specialization: 'Pediatrics',
-        profileImage: './uploads/doctor4-profile.png',
+        profileImage: '/uploads/doctor4-profile.png', // Female
         patients: [],
       },
       {
@@ -90,195 +89,226 @@ const seedData = async () => {
         age: 40,
         gender: 'M',
         specialization: 'General Medicine',
-        profileImage: './uploads/doctor5-profile.png',
+        profileImage: '/uploads/doctor3-profile.png', // Male
         patients: [],
       },
     ];
 
+    const savedDoctors = [];
     for (const doctor of doctors) {
       const newDoctor = new User(doctor);
       await newDoctor.save();
+      savedDoctors.push(newDoctor);
       console.log(`Doctor ${doctor.name} seeded successfully`);
     }
 
-    // Patients with more comprehensive medical history
+    // Patients with new medical history structure
     const patients = [
       {
-        name: pakistaniNames[0], // Ayesha Khan
+        name: pakistaniNames[0], // Ayesha Khan (F)
         email: 'ayesha.khan@patient.com',
         password: 'patient123',
         role: 'patient',
         age: 65,
         gender: 'F',
-        profileImage: './uploads/patient1-profile.png',
-        doctor: doctors[0]._id, // Dr. Ahmed Khan
+        profileImage: '/uploads/patient1-profile.png', // Female
+        doctor: savedDoctors[0]._id, // Dr. Ahmed Khan
         medicalHistory: [
           {
             date: new Date(),
-            vitals: { 'blood pressure': '120/80', 'heart rate': '72', 'oxygen level': '98' },
-            diseases: ['Hypertension'],
+            vitals: [
+              { name: 'blood pressure', value: '120/80', status: 'Normal', document: '/uploads/patient1-report1.pdf' },
+              { name: 'heart rate', value: '72', status: 'Normal' },
+              { name: 'oxygen level', value: '98', status: 'Normal' },
+            ],
+            diseases: [{ name: 'Hypertension' }],
             notes: 'Stable condition, regular monitoring needed.',
-            documents: ['./uploads/patient1-report1.pdf'],
+            documents: [],
             status: 'Normal',
           },
         ],
       },
       {
-        name: pakistaniNames[1], // Fatima Ahmed
+        name: pakistaniNames[1], // Fatima Ahmed (F)
         email: 'fatima.ahmed@patient.com',
         password: 'patient123',
         role: 'patient',
         age: 70,
         gender: 'F',
-        profileImage: './uploads/patient2-profile.png',
-        doctor: doctors[1]._id, // Dr. Sobia Malik
+        profileImage: '/uploads/patient1-profile.png', // Female
+        doctor: savedDoctors[1]._id, // Dr. Sobia Malik
         medicalHistory: [
           {
             date: new Date(),
-            vitals: { 'blood pressure': '130/85', 'heart rate': '80', 'temperature': '36.6' },
-            diseases: ['Diabetes'],
+            vitals: [
+              { name: 'blood pressure', value: '130/85', status: 'Normal', document: '/uploads/patient2-report1.pdf' },
+              { name: 'heart rate', value: '80', status: 'Normal' },
+              { name: 'temperature', value: '36.6', status: 'Normal' },
+            ],
+            diseases: [{ name: 'Diabetes' }],
             notes: 'Controlled with medication.',
-            documents: ['./uploads/patient1-report1.pdf'],
+            documents: [],
             status: 'Normal',
           },
         ],
       },
       {
-        name: pakistaniNames[2], // Hassan Iqbal
+        name: pakistaniNames[2], // Hassan Iqbal (M)
         email: 'hassan.iqbal@patient.com',
         password: 'patient123',
         role: 'patient',
         age: 68,
         gender: 'M',
-        profileImage: './uploads/patient3-profile.png',
-        doctor: doctors[2]._id, // Dr. Faisal Ahmed
+        profileImage: '/uploads/patient2-profile.png', // Male
+        doctor: savedDoctors[2]._id, // Dr. Faisal Ahmed
         medicalHistory: [
           {
             date: new Date(),
-            vitals: { 'blood pressure': '140/90', 'heart rate': '85' },
-            diseases: ['Arthritis'],
+            vitals: [
+              { name: 'blood pressure', value: '140/90', status: 'High', document: '/uploads/patient3-report1.pdf' },
+              { name: 'heart rate', value: '85', status: 'Normal' },
+            ],
+            diseases: [{ name: 'Arthritis' }],
             notes: 'Pain management ongoing.',
-            documents: ['./uploads/patient1-report1.pdf'],
+            documents: [],
             status: 'High',
           },
         ],
       },
       {
-        name: pakistaniNames[3], // Zainab Malik
+        name: pakistaniNames[3], // Zainab Malik (F)
         email: 'zainab.malik@patient.com',
         password: 'patient123',
         role: 'patient',
         age: 72,
         gender: 'F',
-        profileImage: './uploads/patient4-profile.png',
-        doctor: doctors[3]._id, // Dr. Amina Rashid
+        profileImage: '/uploads/patient1-profile.png', // Female
+        doctor: savedDoctors[3]._id, // Dr. Amina Rashid
         medicalHistory: [
           {
             date: new Date(),
-            vitals: { 'blood pressure': '110/70', 'oxygen level': '96' },
-            diseases: ['Asthma'],
+            vitals: [
+              { name: 'blood pressure', value: '110/70', status: 'Normal' },
+              { name: 'oxygen level', value: '96', status: 'Normal', document: '/uploads/patient4-report1.pdf' },
+            ],
+            diseases: [{ name: 'Asthma' }],
             notes: 'Mild symptoms, inhaler prescribed.',
-            documents: ['./uploads/patient1-report1.pdf'],
+            documents: [],
             status: 'Normal',
           },
         ],
       },
       {
-        name: pakistaniNames[4], // Omar Farooq
+        name: pakistaniNames[4], // Omar Farooq (M)
         email: 'omar.farooq@patient.com',
         password: 'patient123',
         role: 'patient',
         age: 67,
         gender: 'M',
-        profileImage: './uploads/patient5-profile.png',
-        doctor: doctors[4]._id, // Dr. Zafar Iqbal
+        profileImage: '/uploads/patient3-profile.png', // Male
+        doctor: savedDoctors[4]._id, // Dr. Zafar Iqbal
         medicalHistory: [
           {
             date: new Date(),
-            vitals: { 'blood pressure': '135/85', 'heart rate': '78' },
-            diseases: ['Heart Disease'],
+            vitals: [
+              { name: 'blood pressure', value: '135/85', status: 'Normal' },
+              { name: 'heart rate', value: '78', status: 'Normal', document: '/uploads/patient5-report1.pdf' },
+            ],
+            diseases: [{ name: 'Heart Disease' }],
             notes: 'Stable, follow-up in 2 weeks.',
-            documents: ['./uploads/patient1-report1.pdf'],
+            documents: [],
             status: 'Normal',
           },
         ],
       },
       {
-        name: pakistaniNames[5], // Sana Ali
+        name: pakistaniNames[5], // Sana Ali (F)
         email: 'sana.ali@patient.com',
         password: 'patient123',
         role: 'patient',
         age: 69,
         gender: 'F',
-        profileImage: './uploads/patient4-profile.png',
-        doctor: doctors[0]._id, // Dr. Ahmed Khan
+        profileImage: '/uploads/patient1-profile.png', // Female
+        doctor: savedDoctors[0]._id, // Dr. Ahmed Khan
         medicalHistory: [
           {
             date: new Date(),
-            vitals: { 'blood pressure': '125/80', 'oxygen level': '97' },
-            diseases: ['Osteoporosis'],
+            vitals: [
+              { name: 'blood pressure', value: '125/80', status: 'Normal' },
+              { name: 'oxygen level', value: '97', status: 'Normal', document: '/uploads/patient6-report1.pdf' },
+            ],
+            diseases: [{ name: 'Osteoporosis' }],
             notes: 'Calcium supplements prescribed.',
-            documents: ['./uploads/patient1-report1.pdf'],
+            documents: [],
             status: 'Normal',
           },
         ],
       },
       {
-        name: pakistaniNames[6], // Bilal Hussain
+        name: pakistaniNames[6], // Bilal Hussain (M)
         email: 'bilal.hussain@patient.com',
         password: 'patient123',
         role: 'patient',
         age: 71,
         gender: 'M',
-        profileImage: './uploads/patient3-profile.png',
-        doctor: doctors[1]._id, // Dr. Sobia Malik
+        profileImage: '/uploads/patient4-profile.png', // Male
+        doctor: savedDoctors[1]._id, // Dr. Sobia Malik
         medicalHistory: [
           {
             date: new Date(),
-            vitals: { 'blood pressure': '145/95', 'heart rate': '90' },
-            diseases: ['Hypertension', 'Diabetes'],
+            vitals: [
+              { name: 'blood pressure', value: '145/95', status: 'High', document: '/uploads/patient7-report1.pdf' },
+              { name: 'heart rate', value: '90', status: 'Normal' },
+            ],
+            diseases: [{ name: 'Hypertension' }, { name: 'Diabetes' }],
             notes: 'Medication adjustment needed.',
-            documents: ['./uploads/patient1-report1.pdf'],
+            documents: [],
             status: 'High',
           },
         ],
       },
       {
-        name: pakistaniNames[7], // Nadia Sheikh
+        name: pakistaniNames[7], // Nadia Sheikh (F)
         email: 'nadia.sheikh@patient.com',
         password: 'patient123',
         role: 'patient',
         age: 66,
         gender: 'F',
-        profileImage: './uploads/patient2-profile.png',
-        doctor: doctors[2]._id, // Dr. Faisal Ahmed
+        profileImage: '/uploads/patient1-profile.png', // Female
+        doctor: savedDoctors[2]._id, // Dr. Faisal Ahmed
         medicalHistory: [
           {
             date: new Date(),
-            vitals: { 'blood pressure': '115/75', 'temperature': '37.0' },
-            diseases: ['Chronic Fatigue'],
+            vitals: [
+              { name: 'blood pressure', value: '115/75', status: 'Normal' },
+              { name: 'temperature', value: '37.0', status: 'Normal', document: '/uploads/patient8-report1.pdf' },
+            ],
+            diseases: [{ name: 'Chronic Fatigue' }],
             notes: 'Rest recommended.',
-            documents: ['./uploads/patient1-report1.pdf'],
+            documents: [],
             status: 'Normal',
           },
         ],
       },
       {
-        name: pakistaniNames[8], // Usman Chaudhry
+        name: pakistaniNames[8], // Usman Chaudhry (M)
         email: 'usman.chaudhry@patient.com',
         password: 'patient123',
         role: 'patient',
         age: 73,
         gender: 'M',
-        profileImage: './uploads/patient2-profile.png',
-        doctor: doctors[3]._id, // Dr. Amina Rashid
+        profileImage: '/uploads/patient2-profile.png', // Male
+        doctor: savedDoctors[3]._id, // Dr. Amina Rashid
         medicalHistory: [
           {
             date: new Date(),
-            vitals: { 'blood pressure': '130/82', 'oxygen level': '95' },
-            diseases: ['COPD'],
+            vitals: [
+              { name: 'blood pressure', value: '130/82', status: 'Normal' },
+              { name: 'oxygen level', value: '95', status: 'Low', document: '/uploads/patient9-report1.pdf' },
+            ],
+            diseases: [{ name: 'COPD' }],
             notes: 'Oxygen therapy advised.',
-            documents: ['./uploads/patient1-report1.pdf'],
+            documents: [],
             status: 'Low',
           },
         ],

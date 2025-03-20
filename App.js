@@ -10,11 +10,14 @@ import DoctorProfile from './screens/DoctorProfile';
 import PatientProfile from './screens/PatientProfile';
 import AdminDashboard from './screens/AdminDashboard';
 import PatientDetails from './screens/PatientDetails';
-import EditPatient from './screens/EditPatient'; // New screen
+import EditPatient from './screens/EditPatient';
 import Reports from './screens/Reports'; // Placeholder
 import Alerts from './screens/Alerts'; // Placeholder
-import PatientManagement from './screens/PatientManagement'; // New screen
-
+import PatientManagement from './screens/PatientManagement';
+import Precautions from './screens/Precautions'; // Placeholder
+import PrecautionDetails from './screens/PrecautionDetails'; // Placeholder
+import EmergencyProtocols from './screens/EmergencyProtocols';
+import EmergencyDetails from './screens/EmergencyDetails'
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
 
@@ -24,11 +27,15 @@ const DoctorDrawer = () => (
       drawerStyle: { backgroundColor: '#201919', width: 240 },
       drawerLabelStyle: { color: '#fff', fontSize: 16 },
       drawerActiveTintColor: '#00796B',
+      headerStyle: { backgroundColor: '#201919', elevation: 0, shadowOpacity: 0 },
+      headerTintColor: '#fff',
+      headerTitleStyle: { fontSize: 18, fontWeight: '600' },
     }}
   >
     <Drawer.Screen name="Profile" component={DoctorProfile} />
-    <Drawer.Screen name="Reports" component={Reports} />
-    <Drawer.Screen name="Alerts" component={Alerts} />
+    <Drawer.Screen name="Precautions" component={Precautions} />
+    <Drawer.Screen name="Emergency Protocols" component={EmergencyProtocols} />
+    {/* <Drawer.Screen name="Alerts" component={Alerts} /> */}
   </Drawer.Navigator>
 );
 
@@ -50,16 +57,27 @@ export default function App() {
           name="DoctorProfile"
           component={DoctorDrawer}
           options={({ navigation }) => ({
+            headerShown: false, // Hide the Stack.Navigator header
             headerLeft: () => (
-              <Ionicons name="menu" size={24} color="#fff" style={{ marginLeft: 15 }} onPress={() => navigation.toggleDrawer()} />
+              <Ionicons
+                name="menu"
+                size={24}
+                color="#fff"
+                style={{ marginLeft: 15 }}
+                onPress={() => navigation.toggleDrawer()}
+              />
             ),
           })}
         />
         <Stack.Screen name="PatientProfile" component={PatientProfile} />
         <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
-        <Stack.Screen name="PatientManagement" component={PatientManagement}/>
+        <Stack.Screen name="PatientManagement" component={PatientManagement} />
         <Stack.Screen name="PatientDetails" component={PatientDetails} />
         <Stack.Screen name="EditPatient" component={EditPatient} />
+
+        {/* doctor */}
+        <Stack.Screen name="PrecautionDetails" component={PrecautionDetails} />
+        <Stack.Screen name="EmergencyDetails" component={EmergencyDetails} />
       </Stack.Navigator>
     </NavigationContainer>
   );

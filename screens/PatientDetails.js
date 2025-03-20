@@ -1,6 +1,6 @@
 // frontend/screens/PatientDetails.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -11,6 +11,7 @@ const IP_ADDRESS = Constants.expoConfig.extra.IP_ADDRESS;
 const PatientDetails = ({ route }) => {
   const { patientId } = route.params;
   const [patient, setPatient] = useState(null);
+  const [selectedDocument, setSelectedDocument] = useState(null);
 
   useEffect(() => {
     const fetchPatient = async () => {
@@ -29,12 +30,12 @@ const PatientDetails = ({ route }) => {
   }, [patientId]);
 
   const renderCheckupReport = ({ item, index }) => {
-    // Convert the Map-like vitals object to an array of key-value pairs
-    const vitalEntries = Object.entries(item.vitals || {});
-    const vitalData = vitalEntries.map(([vital, value]) => ({
-      vital: vital.charAt(0).toUpperCase() + vital.slice(1), // Capitalize the vital name (e.g., "blood pressure" -> "Blood Pressure")
-      report: value || 'N/A',
-      status: item.status || 'N/A', // Use the status from the backend
+    // Use the new vitals array structure from the updated backend
+    const vitalData = item.vitals.map((vital, vitalIndex) => ({
+      vital: vital.name.charAt(0).toUpperCase() + vital.name.slice(1),
+      report: vital.value || 'N/A',
+      status: vital.status || 'N/A',
+      document: vital.document || null, // Document tied to this specific vital
     }));
 
     return (
@@ -42,28 +43,38 @@ const PatientDetails = ({ route }) => {
         data={vitalData}
         renderItem={({ item: vitalItem, index: vitalIndex }) => (
           <View style={styles.reportRow}>
-            <Text style={styles.reportText}>{index * vitalEntries.length + vitalIndex + 1}</Text>
+            <Text style={styles.reportText}>{index * vitalData.length + vitalIndex + 1}</Text>
             <Text style={styles.reportText}>{vitalItem.vital}</Text>
             <Text style={styles.reportText}>{vitalItem.report}</Text>
-            <Text
-              style={[
-                styles.reportText,
-                {
-                  color:
-                    vitalItem.status === 'Normal' || vitalItem.status === 'OK'
-                      ? 'green'
-                      : vitalItem.status === 'Low'
-                      ? 'orange'
-                      : vitalItem.status === 'High'
-                      ? 'red'
-                      : vitalItem.status === 'Danger'
-                      ? 'purple'
-                      : 'black', // Fallback for 'N/A' or unexpected status
-                },
-              ]}
-            >
-              {vitalItem.status}
-            </Text>
+            <View style={styles.statusContainer}>
+              <Text
+                style={[
+                  styles.reportText,
+                  {
+                    color:
+                      vitalItem.status === 'Normal' || vitalItem.status === 'OK'
+                        ? 'green'
+                        : vitalItem.status === 'Low'
+                        ? 'orange'
+                        : vitalItem.status === 'High'
+                        ? 'red'
+                        : vitalItem.status === 'Danger'
+                        ? 'purple'
+                        : 'black',
+                  },
+                ]}
+              >
+                {vitalItem.status}
+              </Text>
+              {vitalItem.document && (
+                <TouchableOpacity
+                  style={styles.viewButton}
+                  onPress={() => setSelectedDocument(vitalItem.document)}
+                >
+                  <Text style={styles.viewButtonText}>View</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
         keyExtractor={(item, index) => `vital-${index}`}
@@ -93,6 +104,7 @@ const PatientDetails = ({ route }) => {
               </View>
             </View>
           </View>
+
           <Text style={styles.sectionTitle}>Last Checkup Reports</Text>
           <View style={styles.reportHeader}>
             <Text style={styles.headerText}>Sr.No</Text>
@@ -106,6 +118,35 @@ const PatientDetails = ({ route }) => {
             keyExtractor={(item, index) => index.toString()}
             ListEmptyComponent={<Text style={styles.emptyText}>No checkup reports available.</Text>}
           />
+
+          {/* Document Viewer Modal */}
+          <Modal
+            visible={!!selectedDocument}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setSelectedDocument(null)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                {selectedDocument && (
+                  <>
+                    <Text style={styles.modalTitle}>Document Viewer</Text>
+                    <Image
+                      source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}` }}
+                      style={styles.documentImage}
+                      resizeMode="contain"
+                    />
+                    <TouchableOpacity
+                      style={styles.closeButton}
+                      onPress={() => setSelectedDocument(null)}
+                    >
+                      <Text style={styles.closeButtonText}>Close</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </View>
+          </Modal>
         </View>
       ) : (
         <Text style={styles.loadingText}>Loading...</Text>
@@ -201,6 +242,54 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'center',
     marginTop: 50,
+  },
+  statusContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  viewButton: {
+    backgroundColor: '#00796B',
+    padding: 5,
+    borderRadius: 5,
+  },
+  viewButtonText: {
+    color: 'white',
+    fontSize: 12,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    width: '90%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  documentImage: {
+    width: '100%',
+    height: 400,
+  },
+  closeButton: {
+    backgroundColor: '#00796B',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
+  },
+  closeButtonText: {
+    color: 'white',
+    fontSize: 16,
   },
 });
 
