@@ -1,10 +1,9 @@
 {
   "expo": {
     "extra": {
-      "GOOGLE_WEB_CLIENT_ID": "209593469044-uic9530ek9at21hfjkici1m1p9pfeg88.apps.googleusercontent.com",
-      "API_URL": "192.168.8.102",
+     
       "IP_ADDRESS": "192.168.64.138",
-      "IP": "192.168.8.102",
+      "IP": "192.168.64.138",
       "GOOGLE_MAPS_API_KEY": "your-google-maps-key"
     },
     "name": "elderly-care-app",

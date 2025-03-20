@@ -1,48 +1,63 @@
+// backend/routes/userRoutes.js
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth'); // Adjusted path to match your structure
-const { restrictTo } = require('../middleware/restrictTo'); // Add this import
+const { protect } = require('../middleware/auth');
+const { restrictTo } = require('../middleware/restrictTo');
+const multer = require('multer');
 
-// const controller = require('../controllers/user-controller');
-// console.log('Controller exports:', controller);
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
+});
+const upload = multer({ storage });
+
 const {
   register,
   verifyOTP,
   login,
   getMe,
   updateMe,
+  uploadProfileImage,
+  uploadDocument,
   deleteUser,
   assignPatientToDoctor,
   logout,
   updatePatientMedicalHistory,
   getAllUsers,
   getDoctorAlerts,
-   getPatientAlerts,
-    dismissAlert,
-} = require('../controllers/user-controller'); 
+  getPatientAlerts,
+  dismissAlert,
+  updatePatientProfile, // Add the new controller function
+} = require('../controllers/user-controller');
 
 // Public Routes
-router.post('/register', register);           // Register a new user and send OTP
-router.post('/verify-otp', verifyOTP);        // Verify OTP and complete registration
-router.post('/login', login);                 // Login user and return JWT token
+router.post('/register', register);
+router.post('/verify-otp', verifyOTP);
+router.post('/login', login);
 
-// Protected Routes (require authentication)
-router.get('/me', protect, getMe);            // Get current user's profile
-router.patch('/me', protect, updateMe);       // Update current user's profile (e.g., name, specialization)
-router.post('/logout', protect, logout);      // Logout user (clear token on client-side)
+// Protected Routes
+router.get('/me', protect, getMe);
+router.patch('/me', protect, updateMe);
+router.post('/upload-profile-image', protect, upload.single('profileImage'), uploadProfileImage);
+router.post('/upload-document', protect, upload.single('document'), uploadDocument);
+router.post('/logout', protect, logout);
 
-// Patient Medical History (accessible by doctors/admins)
-router.post('/patient/medical-history', protect, updatePatientMedicalHistory); // Update patient's medical history
+// Patient Routes
+router.post('/patient/medical-history', protect, updatePatientMedicalHistory);
+router.post('/patient/update-profile', protect, updatePatientProfile); // Add the new route
 
-
-// doctor alert routes
+// Doctor Alert Routes
 router.get('/alerts', protect, getDoctorAlerts);
+router.get('/patient/alerts', protect, getPatientAlerts);
+router.post('/patient/dismiss-alert', protect, dismissAlert);
 
-router.get('/patient/alerts', protect, getPatientAlerts); // Get alerts
-router.post('/patient/dismiss-alert', protect, dismissAlert); // Dismiss alert
 // Admin-Only Routes
-router.get('/all', protect, restrictTo('admin'), getAllUsers); 
-router.delete('/user/:id', protect, restrictTo('admin'), deleteUser); // Delete a user
-router.post('/assign-patient', protect, restrictTo('admin'), assignPatientToDoctor); // Assign patient to doctor
+router.get('/all', protect, restrictTo('admin'), getAllUsers);
+router.delete('/user/:id', protect, restrictTo('admin'), deleteUser);
+router.post('/assign-patient', protect, restrictTo('admin'), assignPatientToDoctor);
 
 module.exports = router;

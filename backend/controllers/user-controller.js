@@ -1,11 +1,9 @@
-
-// controllers/userController.js
+// backend/controllers/user-controller.js
 const User = require("../models/user-model");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 require("dotenv").config();
-
 
 // Helper: Generate JWT Token
 const signToken = (id, role) => {
@@ -17,12 +15,12 @@ const signToken = (id, role) => {
 // In-memory OTP store (use Redis or MongoDB in production)
 const otpStore = {};
 
-// Nodemailer configuration (using Gmail as an example)
+// Nodemailer configuration
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: process.env.EMAIL_USER, // Your Gmail address
-    pass: process.env.EMAIL_PASS, // Your Gmail App Password
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
 
@@ -52,7 +50,7 @@ const sendOTPEmail = async (email, otp) => {
 // Register User (Step 1: Send OTP)
 const register = async (req, res) => {
   try {
-    const { name, email, password, role, specialization } = req.body;
+    const { name, email, password, role, specialization, age, gender } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -81,7 +79,7 @@ const register = async (req, res) => {
 // Verify OTP and Complete Registration (Step 2)
 const verifyOTP = async (req, res) => {
   try {
-    const { name, email, password, role, specialization, otp } = req.body;
+    const { name, email, password, role, specialization, age, gender, otp } = req.body;
 
     // Validate OTP
     const storedOTP = otpStore[email];
@@ -94,8 +92,8 @@ const verifyOTP = async (req, res) => {
       return res.status(400).json({ error: "Email already registered" });
     }
 
-    const user = await User.create({ name, email, password, role, specialization });
-    user.password = undefined; // Remove password from output
+    const user = await User.create({ name, email, password, role, specialization, age, gender });
+    user.password = undefined;
 
     // Clear OTP from store
     delete otpStore[email];
@@ -144,6 +142,9 @@ const login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        age: user.age,
+        gender: user.gender,
+        profileImage: user.profileImage,
       },
     });
   } catch (error) {
@@ -157,7 +158,7 @@ const login = async (req, res) => {
 // Get Current User Profile
 const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).populate('patients');
 
     res.status(200).json({
       status: "success",
@@ -177,6 +178,9 @@ const updateMe = async (req, res) => {
     const filteredBody = {
       name: req.body.name,
       email: req.body.email,
+      age: req.body.age,
+      gender: req.body.gender,
+      profileImage: req.body.profileImage,
     };
 
     if (req.body.password) {
@@ -199,6 +203,38 @@ const updateMe = async (req, res) => {
     });
   }
 };
+
+// Upload Profile Image
+const uploadProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const filePath = `/uploads/${req.file.filename}`;
+    user.profileImage = filePath;
+    await user.save();
+
+    console.log(`Profile image uploaded for user ${req.user.id}: ${filePath}`);
+
+    res.status(200).json({
+      status: 'success',
+      profileImage: filePath,
+    });
+  } catch (error) {
+    console.error('Error uploading profile image:', error);
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+    });
+  }
+};
+
 
 // Delete User (Admin Only)
 const deleteUser = async (req, res) => {
@@ -270,43 +306,55 @@ const logout = (req, res) => {
 };
 
 
-// Add this to user-controller.js
-const updatePatientMedicalHistory = async (req, res) => {
-  try {
-    const { patientId, vitals, diseases, notes } = req.body;
+// Update Patient Medical History
+// const updatePatientMedicalHistory = async (req, res) => {
+//   try {
+//     const { patientId, vitals, diseases, notes, status } = req.body;
 
-    // Check if the requester is a doctor or admin
-    if (req.user.role !== 'doctor' && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Unauthorized: Only doctors or admins can update medical history' });
-    }
+//     if (req.user.role !== 'doctor' && req.user.role !== 'admin') {
+//       return res.status(403).json({ error: 'Unauthorized: Only doctors or admins can update medical history' });
+//     }
 
-    const patient = await User.findById(patientId);
-    if (!patient || patient.role !== 'patient') {
-      return res.status(404).json({ error: 'Patient not found' });
-    }
+//     const patient = await User.findById(patientId);
+//     if (!patient || patient.role !== 'patient') {
+//       return res.status(404).json({ error: 'Patient not found' });
+//     }
 
-    // Add new medical history entry
-    const newHistory = {
-      date: new Date(),
-      vitals: vitals || {},
-      diseases: diseases || [],
-      notes: notes || '',
-    };
-    patient.medicalHistory.push(newHistory);
-    await patient.save();
+//     // Check if the logged-in doctor is assigned to this patient
+//     if (req.user.role === 'doctor' && patient.doctor.toString() !== req.user.id.toString()) {
+//       return res.status(403).json({ error: 'Unauthorized: You are not assigned to this patient' });
+//     }
 
-    res.status(200).json({
-      status: 'success',
-      message: 'Medical history updated successfully',
-      medicalHistory: patient.medicalHistory,
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: 'error',
-      error: error.message,
-    });
-  }
-};
+//     // Validate the status
+//     const validStatuses = ['Normal', 'High', 'Low', 'OK', 'Danger'];
+//     if (status && !validStatuses.includes(status)) {
+//       return res.status(400).json({ error: 'Invalid status value' });
+//     }
+
+//     const newHistory = {
+//       date: new Date(),
+//       vitals: vitals || {},
+//       diseases: diseases || [],
+//       notes: notes || '',
+//       documents: [],
+//       status: status || 'Normal', // Use the provided status, default to 'Normal' if not provided
+//     };
+//     patient.medicalHistory.push(newHistory);
+//     await patient.save();
+
+//     res.status(200).json({
+//       status: 'success',
+//       message: 'Medical history updated successfully',
+//       medicalHistory: patient.medicalHistory,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       status: 'error',
+//       error: error.message,
+//     });
+//   }
+// };
+
 // Get All Users (Admin Only)
 const getAllUsers = async (req, res) => {
   try {
@@ -314,7 +362,7 @@ const getAllUsers = async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized: Only admins can access this route' });
     }
 
-    const users = await User.find().select('-password'); // Exclude passwords
+    const users = await User.find().select('-password');
     res.status(200).json({
       status: 'success',
       users,
@@ -326,6 +374,8 @@ const getAllUsers = async (req, res) => {
     });
   }
 };
+
+// Get Doctor Alerts
 const getDoctorAlerts = async (req, res) => {
   try {
     if (req.user.role !== 'doctor') {
@@ -338,8 +388,13 @@ const getDoctorAlerts = async (req, res) => {
         alerts.push({ patientId: patient._id, message: 'Unassigned patient', severity: 'high' });
       }
       patient.medicalHistory.forEach(history => {
-        if (history.vitals?.heartRate > 100 || history.vitals?.heartRate < 60) {
-          alerts.push({ patientId: patient._id, message: `Abnormal heart rate: ${history.vitals.heartRate}`, severity: 'critical' });
+        // Check the status field instead of calculating based on vitals
+        if (history.status === 'High' || history.status === 'Low' || history.status === 'Danger') {
+          alerts.push({
+            patientId: patient._id,
+            message: `Abnormal vital status: ${history.status}`,
+            severity: history.status === 'Danger' ? 'critical' : 'high',
+          });
         }
       });
     });
@@ -349,8 +404,7 @@ const getDoctorAlerts = async (req, res) => {
   }
 };
 
-// Alerts
-// Get Doctor's Patient Alerts
+// Get Patient Alerts
 const getPatientAlerts = async (req, res) => {
   try {
     if (req.user.role !== 'doctor') {
@@ -395,12 +449,153 @@ const dismissAlert = async (req, res) => {
   }
 };
 
+// Update Patient by doctor routes
+// Modify updatePatientProfile to prevent doctors from updating personal info
+const updatePatientProfile = async (req, res) => {
+  try {
+    const { patientId } = req.body;
+
+    if (req.user.role !== 'doctor' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Unauthorized: Only doctors or admins can update patient profiles' });
+    }
+
+    const patient = await User.findById(patientId);
+    if (!patient || patient.role !== 'patient') {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+
+    // Check if the logged-in doctor is assigned to this patient
+    if (req.user.role === 'doctor' && patient.doctor.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ error: 'Unauthorized: You are not assigned to this patient' });
+    }
+
+    // Doctors can only update medical-related data, not personal info
+    if (req.user.role === 'doctor') {
+      return res.status(403).json({ 
+        error: 'Doctors can only update medical history, not personal information' 
+      });
+    }
+
+    // Only admin can update personal info
+    patient.name = req.body.name || patient.name;
+    patient.age = req.body.age || patient.age;
+    patient.gender = req.body.gender || patient.gender;
+    await patient.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Patient profile updated successfully',
+      patient,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+    });
+  }
+};
+
+// Modify updatePatientMedicalHistory to add new entries at the start
+const updatePatientMedicalHistory = async (req, res) => {
+  try {
+    const { patientId, vitals, diseases, notes, status } = req.body;
+
+    if (req.user.role !== 'doctor' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Unauthorized: Only doctors or admins can update medical history' });
+    }
+
+    const patient = await User.findById(patientId);
+    if (!patient || patient.role !== 'patient') {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+
+    if (req.user.role === 'doctor' && patient.doctor.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ error: 'Unauthorized: You are not assigned to this patient' });
+    }
+
+    const validStatuses = ['Normal', 'High', 'Low', 'OK', 'Danger'];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
+
+    const newHistory = {
+      date: new Date(),
+      vitals: vitals || {},
+      diseases: diseases || [],
+      notes: notes || '',
+      documents: [],
+      status: status || 'Normal',
+    };
+    // Add to the beginning of the array instead of the end
+    patient.medicalHistory.unshift(newHistory);
+    await patient.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Medical history updated successfully',
+      medicalHistory: patient.medicalHistory,
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+    });
+  }
+};
+
+// Fix uploadDocument
+const uploadDocument = async (req, res) => {
+  try {
+    const { patientId, historyId } = req.body;
+
+    if (req.user.role !== 'doctor') {
+      return res.status(403).json({ error: 'Unauthorized: Only doctors can upload documents' });
+    }
+
+    const patient = await User.findById(patientId);
+    if (!patient || patient.role !== 'patient') {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+
+    if (patient.doctor.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ error: 'Unauthorized: You are not assigned to this patient' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const historyEntry = patient.medicalHistory.id(historyId);
+    if (!historyEntry) {
+      return res.status(404).json({ error: 'Medical history entry not found' });
+    }
+
+    const filePath = `/uploads/${req.file.filename}`;
+    historyEntry.documents.push(filePath);
+    await patient.save();
+
+    res.status(200).json({
+      status: 'success',
+      document: filePath,
+      historyId: historyId
+    });
+  } catch (error) {
+    console.error('Error uploading document:', error);
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   verifyOTP,
   login,
   getMe,
   updateMe,
+  uploadProfileImage,
+  uploadDocument,
   deleteUser,
   assignPatientToDoctor,
   logout,
@@ -409,4 +604,5 @@ module.exports = {
   getDoctorAlerts,
   getPatientAlerts,
   dismissAlert,
+  updatePatientProfile, // Export the new function
 };

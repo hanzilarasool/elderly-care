@@ -1,4 +1,4 @@
-// models/User.js
+// backend/models/user-model.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -16,7 +16,6 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    // required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters']
   },
   role: {
@@ -24,10 +23,20 @@ const userSchema = new mongoose.Schema({
     enum: ['doctor', 'patient', 'admin'],
     required: true
   },
+  age: {
+    type: Number,
+    min: [0, 'Age cannot be negative'],
+  },
+  gender: {
+    type: String,
+    enum: ['M', 'F', 'Other'],
+  },
+  profileImage: {
+    type: String, // Store the URL/path of the uploaded image
+  },
   // Doctor-specific fields
   specialization: {
     type: String,
-    // required: function() { return this.role === 'doctor'; }
   },
   patients: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -37,7 +46,6 @@ const userSchema = new mongoose.Schema({
   doctor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    // required: function() { return this.role === 'patient'; }
   },
   medicalHistory: [{
     date: {
@@ -45,21 +53,23 @@ const userSchema = new mongoose.Schema({
       default: Date.now
     },
     vitals: {
-      bloodPressure: String,
-      heartRate: Number,
-      temperature: Number,
-      oxygenLevel: Number
+      type: Map, // Use Map to store dynamic key-value pairs (e.g., { "blood pressure": "120/80" })
+      of: String,
     },
     diseases: [String],
-    notes: String
+    notes: String,
+    documents: [String], // Store URLs/paths of uploaded documents
+    status: { // Add status field
+      type: String,
+      enum: ['Normal', 'High', 'Low', 'OK', 'Danger'],
+      default: 'Normal'
+    }
   }],
-
   alerts: [{
     message: String,
     date: { type: Date, default: Date.now },
     dismissed: { type: Boolean, default: false },
   }],
-  // Admin-specific fields (can be extended)
   createdAt: {
     type: Date,
     default: Date.now

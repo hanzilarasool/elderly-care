@@ -1,11 +1,12 @@
+// frontend/screens/AdminDashboard.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal ,Image,Button} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { Picker } from '@react-native-picker/picker';
-
 import Constants from "expo-constants";
+// import { Button } from 'react-native-web';
 
 const IP_ADDRESS = Constants.expoConfig.extra.IP_ADDRESS;
 
@@ -16,7 +17,6 @@ const AdminDashboard = ({ navigation }) => {
   const [selectedDoctor, setSelectedDoctor] = useState('');
   const [selectedPatient, setSelectedPatient] = useState('');
 
-  // Fetch all doctors and patients on mount
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -34,7 +34,6 @@ const AdminDashboard = ({ navigation }) => {
     fetchUsers();
   }, []);
 
-  // Assign patient to doctor
   const handleAssignPatient = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -45,26 +44,25 @@ const AdminDashboard = ({ navigation }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setModalVisible(false);
-      // Refresh the list
       const response = await axios.get(`http://${IP_ADDRESS}:5000/api/user/all`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const users = response.data.users || [];
       setDoctors(users.filter(user => user.role === 'doctor'));
       setPatients(users.filter(user => user.role === 'patient'));
+      setSelectedDoctor('');
+      setSelectedPatient('');
     } catch (error) {
       console.error('Error assigning patient:', error);
     }
   };
 
-  // Delete a user
   const handleDeleteUser = async (userId) => {
     try {
       const token = await AsyncStorage.getItem('token');
-      await axios.delete(`http://${IP_ADDRESS}:5000/api/user/${userId}`, {
+      await axios.delete(`http://${IP_ADDRESS}:5000/api/user/user/${userId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Refresh the list
       const response = await axios.get(`http://${IP_ADDRESS}:5000/api/user/all`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -78,8 +76,10 @@ const AdminDashboard = ({ navigation }) => {
 
   const renderDoctor = ({ item }) => (
     <View style={styles.userCard}>
+      <View>
       <Text style={styles.userName}>{item.name} (Doctor)</Text>
       <Text style={styles.userDetail}>Specialization: {item.specialization || 'N/A'}</Text>
+      </View>
       <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteUser(item._id)}>
         <Text style={styles.deleteButtonText}>Delete</Text>
       </TouchableOpacity>
@@ -88,8 +88,8 @@ const AdminDashboard = ({ navigation }) => {
 
   const renderPatient = ({ item }) => (
     <View style={styles.userCard}>
-      <Text style={styles.userName}>{item.name} (Patient)</Text>
-      <Text style={styles.userDetail}>Assigned Doctor: {item.doctor ? item.doctor.name : 'None'}</Text>
+      <View><Text style={styles.userName}>{item.name} (Patient)</Text>
+      <Text style={styles.userDetail}>Assigned Doctor: {item.doctor ? item.doctor.name : 'None'}</Text></View>
       <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteUser(item._id)}>
         <Text style={styles.deleteButtonText}>Delete</Text>
       </TouchableOpacity>
@@ -97,13 +97,17 @@ const AdminDashboard = ({ navigation }) => {
   );
 
   return (
-    <LinearGradient colors={['white', '#F5F5F5']} style={styles.container}>
+    <LinearGradient colors={['#E0F7FA', '#B2EBF2']} style={styles.container}>
       <View style={styles.dashboardSection}>
-        <Text style={styles.title}>Admin Dashboard</Text>
+        {/* <Text style={styles.title}>Admin Dashboard</Text> */}
 
-        <TouchableOpacity style={styles.button} onPress={() => setModalVisible(true)}>
-          <Text style={styles.buttonText}>Assign Patient to Doctor</Text>
+      <View>
+      <TouchableOpacity style={styles.button} onPress={() => setModalVisible(true)}>
+          <Text style={styles.buttonText}>Assign Patient to Doctor click!</Text>
+          <Image source={require('../assets/icons/doctor.png')} style={styles.imageIcon} />
         </TouchableOpacity>
+        <Button title='Edit' />
+      </View>
 
         <Text style={styles.sectionTitle}>Doctors</Text>
         <FlatList
@@ -122,13 +126,12 @@ const AdminDashboard = ({ navigation }) => {
         />
       </View>
 
-      {/* Modal for assigning patient to doctor */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Assign Patient to Doctor</Text>
 
-            <Text>Select Doctor:</Text>
+            <Text style={styles.modalLabel}>Select Doctor:</Text>
             <Picker
               selectedValue={selectedDoctor}
               onValueChange={(itemValue) => setSelectedDoctor(itemValue)}
@@ -140,7 +143,7 @@ const AdminDashboard = ({ navigation }) => {
               ))}
             </Picker>
 
-            <Text>Select Patient:</Text>
+            <Text style={styles.modalLabel}>Select Patient:</Text>
             <Picker
               selectedValue={selectedPatient}
               onValueChange={(itemValue) => setSelectedPatient(itemValue)}
@@ -152,12 +155,14 @@ const AdminDashboard = ({ navigation }) => {
               ))}
             </Picker>
 
-            <TouchableOpacity style={styles.button} onPress={handleAssignPatient}>
+           <View style={{display:"flex",flexDirection:"row",justifyContent:"space-between"}}>
+           <TouchableOpacity style={styles.button} onPress={handleAssignPatient}>
               <Text style={styles.buttonText}>Assign</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
+           </View>
           </View>
         </View>
       </Modal>
@@ -169,30 +174,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+   
   },
   dashboardSection: {
     flex: 1,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#00796B',
     textAlign: 'center',
-    marginBottom: 20,
+    // marginBottom: 20,
   },
   button: {
-    backgroundColor: 'black',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
+    backgroundColor: '#00796B',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 8,
-    marginVertical: 10,
-    alignSelf: 'center',
+    marginVertical: 2,
+    // alignSelf: 'center',
+    display: 'flex',
+    flexDirection: 'row',
+    // gap: 10,
+    justifyContent:"space-between",alignItems:"center",
+    // elevation: 3,
   },
+  imageIcon: {width:35,height:35},
   buttonText: {
     color: 'white',
     textAlign: 'center',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   sectionTitle: {
     fontSize: 20,
@@ -203,10 +215,15 @@ const styles = StyleSheet.create({
   },
   userCard: {
     backgroundColor: '#fff',
-    padding: 15,
+    padding: 10,
     borderRadius: 8,
     marginBottom: 10,
     elevation: 2,
+    borderLeftWidth: 5,
+    borderLeftColor: '#00796B',
+    display: 'flex',
+    flexDirection: 'row',
+    justifyContent:"space-between",
   },
   userName: {
     fontSize: 16,
@@ -252,11 +269,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 20,
     textAlign: 'center',
+    color: '#00796B',
+  },
+  modalLabel: {
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 5,
   },
   picker: {
     height: 50,
     width: '100%',
     marginBottom: 20,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
   },
   cancelButton: {
     marginTop: 10,
