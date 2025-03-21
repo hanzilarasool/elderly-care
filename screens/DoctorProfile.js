@@ -22,8 +22,7 @@ const DoctorProfile = ({ navigation }) => {
   const [patients, setPatients] = useState([]);
   const [filteredPatients, setFilteredPatients] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-// chat state management
-const [showChat, setShowChat] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -55,7 +54,7 @@ const [showChat, setShowChat] = useState(false);
 
     if (!result.canceled) {
       const uri = result.assets[0].uri;
-      setProfileImage(uri); // Update UI immediately
+      setProfileImage(uri);
       await uploadProfileImage(uri);
     }
   };
@@ -78,12 +77,12 @@ const [showChat, setShowChat] = useState(false);
       });
 
       const newProfileImage = response.data.profileImage;
-      setProfileImage(newProfileImage); // Update with server URL
+      setProfileImage(newProfileImage);
       setUser({ ...user, profileImage: newProfileImage });
       await AsyncStorage.setItem('user', JSON.stringify({ ...user, profileImage: newProfileImage }));
     } catch (error) {
       console.error('Error uploading profile image:', error);
-      setProfileImage(user.profileImage); // Revert on error
+      setProfileImage(user.profileImage);
     }
   };
 
@@ -106,15 +105,21 @@ const [showChat, setShowChat] = useState(false);
     }
   };
 
-  const handleSearch = () => {
-    if (searchQuery.trim() === '') {
+  const handleSearch = (query) => {
+    if (query.trim() === '') {
       setFilteredPatients(patients);
     } else {
       const filtered = patients.filter(patient =>
-        patient.name.toLowerCase().includes(searchQuery.toLowerCase())
+        patient.name.toLowerCase().includes(query.toLowerCase())
       );
       setFilteredPatients(filtered);
     }
+  };
+
+  // Updated to call handleSearch on text change
+  const handleSearchInputChange = (text) => {
+    setSearchQuery(text);
+    handleSearch(text); // Call handleSearch with the current text
   };
 
   const renderPatient = ({ item, index }) => (
@@ -140,144 +145,142 @@ const [showChat, setShowChat] = useState(false);
 
   return (
     <LinearGradient colors={['#E0F7FA', '#B2EBF2']} style={styles.container}>
+      <View style={{ position: "relative", height: "100%" }}>
+        {user && (
+          <View style={styles.profileSection}>
+            <View style={styles.profilePart}>
+              <TouchableOpacity onPress={pickImage} style={styles.profileImageContainer}>
+                <Image
+                  source={profileImage ? { uri: profileImage.startsWith('http') ? profileImage : `http://${IP_ADDRESS}:5000${profileImage}` } : require("../assets/icons/profile.png")}
+                  style={styles.profileImage}
+                />
+                <Ionicons name="camera" size={24} color="white" style={styles.cameraIcon} />
+              </TouchableOpacity>
+              <View style={styles.personalInfo}>
+                <Text style={styles.name}>{user.name}</Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 15, alignItems: "center" }}>
+                  <Text style={styles.detail}>Age: {user.age || 'N/A'}</Text>
+                  <View style={{ width: 3, height: 15, backgroundColor: "white" }}></View>
+                  <Text style={styles.detail}>Gender: {user.gender || 'N/A'}</Text>
+                </View>
+                <View style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 10 }}>
+                  <Text style={{ fontWeight: "400", fontSize: 15, color: "#333" }}>Field:</Text>
+                  <Text style={styles.specialization}>{specialization || 'Specialization not set'}</Text>
+                </View>
+                <TouchableOpacity style={styles.button} onPress={() => setModalVisible(true)}>
+                  <Text style={styles.buttonText}>Edit Profile</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
-      <View style={{position:"relative",height:"100%"}}>
-     
-      {user && (
-        <View style={styles.profileSection}>
-          <View style={styles.profilePart}>
-            <TouchableOpacity onPress={pickImage} style={styles.profileImageContainer}>
-              <Image
-                source={profileImage ? { uri: profileImage.startsWith('http') ? profileImage : `http://${IP_ADDRESS}:5000${profileImage}` } : require("../assets/icons/profile.png")}
-                style={styles.profileImage}
+            <Text style={styles.sectionTitle}>Assigned Patients</Text>
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search Patient by Name"
+                value={searchQuery}
+                onChangeText={handleSearchInputChange} // Updated to trigger search on text change
               />
-              <Ionicons name="camera" size={24} color="white" style={styles.cameraIcon} />
-            </TouchableOpacity>
-            <View style={styles.personalInfo}>
-              <Text style={styles.name}>{user.name}</Text>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 15, alignItems: "center" }}>
-                <Text style={styles.detail}>Age: {user.age || 'N/A'}</Text>
-                <View style={{ width: 3, height: 15, backgroundColor: "white" }}></View>
-                <Text style={styles.detail}>Gender: {user.gender || 'N/A'}</Text>
-              </View>
-              <View style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 10 }}>
-                <Text style={{ fontWeight: "400", fontSize: 15, color: "#333" }}>Field:</Text>
-                <Text style={styles.specialization}>{specialization || 'Specialization not set'}</Text>
-              </View>
-              <TouchableOpacity style={styles.button} onPress={() => setModalVisible(true)}>
-                <Text style={styles.buttonText}>Edit Profile</Text>
+              <TouchableOpacity style={styles.searchButton} onPress={() => handleSearch(searchQuery)}>
+                <Ionicons name="search" size={20} color="white" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.patientHeader}>
+              <Text style={styles.headerText}>Sr.No</Text>
+              <Text style={styles.headerText}>Name</Text>
+              <Text style={styles.headerText}>Actions</Text>
+            </View>
+            <FlatList
+              data={filteredPatients}
+              renderItem={renderPatient}
+              keyExtractor={(item) => item._id}
+              ListEmptyComponent={<Text style={styles.emptyText}>No patients assigned yet.</Text>}
+            />
+          </View>
+        )}
+
+        <Modal visible={modalVisible} animationType="slide" transparent>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Edit Your Profile</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Name"
+                value={name}
+                onChangeText={setName}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Age"
+                value={age}
+                onChangeText={setAge}
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Gender (M/F/Other)"
+                value={gender}
+                onChangeText={setGender}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Specialization"
+                value={specialization}
+                onChangeText={setSpecialization}
+              />
+              <TouchableOpacity style={styles.button} onPress={handleCompleteProfile}>
+                <Text style={styles.buttonText}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
+                <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
+        </Modal>
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => setShowChat(true)}
+        >
+          <Image source={require("../assets/icons/ai.png")} style={styles.aiIcon} />
+        </TouchableOpacity>
 
-          <Text style={styles.sectionTitle}>Assigned Patients</Text>
-          <View style={styles.searchContainer}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search Patient by Name"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-              <Ionicons name="search" size={20} color="white" />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.patientHeader}>
-            <Text style={styles.headerText}>Sr.No</Text>
-            <Text style={styles.headerText}>Name</Text>
-            <Text style={styles.headerText}>Actions</Text>
-          </View>
-          <FlatList
-            data={filteredPatients}
-            renderItem={renderPatient}
-            keyExtractor={(item) => item._id}
-            ListEmptyComponent={<Text style={styles.emptyText}>No patients assigned yet.</Text>}
-          />
-        </View>
-      )}
-
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Your Profile</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Name"
-              value={name}
-              onChangeText={setName}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Age"
-              value={age}
-              onChangeText={setAge}
-              keyboardType="numeric"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Gender (M/F/Other)"
-              value={gender}
-              onChangeText={setGender}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Specialization"
-              value={specialization}
-              onChangeText={setSpecialization}
-            />
-            <TouchableOpacity style={styles.button} onPress={handleCompleteProfile}>
-              <Text style={styles.buttonText}>Save</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-      <TouchableOpacity 
-        style={styles.fab}
-        onPress={() => setShowChat(true)}
-      >
-        <Image source={require("../assets/icons/ai.png")} style={styles.aiIcon} />
-      </TouchableOpacity>
-
-      <ChatAssistantModal 
-        visible={showChat} 
-        onClose={() => setShowChat(false)}
-      />
+        <ChatAssistantModal
+          visible={showChat}
+          onClose={() => setShowChat(false)}
+        />
       </View>
     </LinearGradient>
   );
 };
-
-// Styles remain unchanged
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
   },
-  profilePart:{
-    flexDirection:"row",backgroundColor:"rgba(0,0,0,0.1)",padding:10,borderRadius:10,alignItems:"center",height:150,gap:10
+  profilePart: {
+    flexDirection: "row",
+    backgroundColor: "rgba(0,0,0,0.1)",
+    padding: 10,
+    borderRadius: 10,
+    alignItems: "center",
+    height: 150,
+    gap: 10,
   },
   profileSection: {
     // alignItems: 'center',
   },
-  profileImageContainer:{
-
-width: 150,
-height: 150,
-backgroundColor:"white"
-
+  profileImageContainer: {
+    width: 150,
+    height: 150,
+    backgroundColor: "white",
   },
   profileImage: {
-  width:"99%",
-  height:"98%",
+    width: "99%",
+    height: "98%",
     borderRadius: 10,
     marginBottom: 10,
-    objectFit:"contain",
-   
-
+    objectFit: "contain",
   },
   cameraIcon: {
     position: 'absolute',
@@ -301,16 +304,12 @@ backgroundColor:"white"
   specialization: {
     fontSize: 14,
     color: '#666',
-    // marginBottom: 10,
   },
   button: {
     backgroundColor: '#00796B',
-    // paddingVertical: 15,
-    // paddingHorizontal: 30,
-    paddingTop:4,
-    paddingBottom:4,
+    paddingTop: 4,
+    paddingBottom: 4,
     borderRadius: 8,
-    // marginVertical: 10,
   },
   buttonText: {
     color: 'white',

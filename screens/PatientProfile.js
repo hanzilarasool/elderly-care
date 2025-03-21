@@ -18,7 +18,7 @@ const PatientProfile = ({ navigation }) => {
   const [gender, setGender] = useState('');
   const [profileImage, setProfileImage] = useState(null);
   const [medicalHistory, setMedicalHistory] = useState([]);
-  const [selectedDocument, setSelectedDocument] = useState(null); // For viewing documents
+  const [selectedDocument, setSelectedDocument] = useState(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -178,10 +178,11 @@ const PatientProfile = ({ navigation }) => {
           ) : (
             <>
               <Text style={styles.name}>{name}</Text>
-            <View style={{flexDirection:"row",gap:10}}>  <Text style={styles.detail}>Age: {age || 'N/A'}</Text>
-            <View style={{backgroundColor:"white",width:2.5,height:17}}></View>
-            <Text style={styles.detail}>Gender: {gender || 'N/A'}</Text>
-            </View>
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <Text style={styles.detail}>Age: {age || 'N/A'}</Text>
+                <View style={{ backgroundColor: "white", width: 2.5, height: 17 }}></View>
+                <Text style={styles.detail}>Gender: {gender || 'N/A'}</Text>
+              </View>
               <TouchableOpacity style={styles.medicalConditionButton}>
                 <Text style={styles.medicalConditionText}>
                   {medicalHistory.length > 0 && medicalHistory[0].diseases.length > 0
@@ -192,18 +193,20 @@ const PatientProfile = ({ navigation }) => {
             </>
           )}
 
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => setIsEditing(!isEditing)}
-          >
-            <View style={{display:"flex",flexDirection:"row"}}>{isEditing ? <Text style={styles.buttonText}>Cancel</Text> : <Text style={styles.buttonText}>Edit Profile</Text>}</View>
-          </TouchableOpacity>
-
-          {isEditing && (
-            <TouchableOpacity style={styles.button} onPress={handleSave}>
-              <Text style={styles.buttonText}>Save</Text>
+          {/* Buttons Section */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[styles.button, styles.cancelButton]} // Added cancelButton style for distinction
+              onPress={() => setIsEditing(!isEditing)}
+            >
+              <Text style={styles.buttonText}>{isEditing ? 'Cancel' : 'Edit Profile'}</Text>
             </TouchableOpacity>
-          )}
+            {isEditing && (
+              <TouchableOpacity style={styles.button} onPress={handleSave}>
+                <Text style={styles.buttonText}>Save</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <Text style={styles.sectionTitle}>Medical History</Text>
           <View style={styles.reportHeader}>
@@ -266,7 +269,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     width: '100%',
-    // backgroundColor:"red"
   },
   profileImage: {
     width: 140,
@@ -315,21 +317,31 @@ const styles = StyleSheet.create({
     elevation: 2,
     color: '#6e6e6d',
   },
+  buttonContainer: {
+    flexDirection: 'row', // Align buttons horizontally
+    justifyContent: 'space-between', // Space them evenly
+    width: '80%', // Match input width for consistency
+    marginVertical: 10,
+  },
   button: {
     backgroundColor: '#00796B',
     paddingVertical: 10,
-    paddingHorizontal: 15,
+    paddingHorizontal: 20,
     borderRadius: 8,
-    marginVertical: 5,
-    flexDirection:"row"
-
+    flex: 1, // Equal width for both buttons
+    marginHorizontal: 5, // Space between buttons
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#9a4b4b',
+    
+   
+    // Red for Cancel to distinguish it
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
-  
-
   },
   sectionTitle: {
     fontSize: 20,
@@ -391,7 +403,6 @@ const styles = StyleSheet.create({
   medicalHistoryContent: {
     paddingBottom: 20,
   },
-  // New styles for document viewer
   modalContainer: {
     flex: 1,
     justifyContent: 'center',

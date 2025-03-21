@@ -16,22 +16,27 @@ const AdminDashboard = ({ navigation }) => {
   const [selectedDoctor, setSelectedDoctor] = useState('');
   const [selectedPatient, setSelectedPatient] = useState('');
 
+  const fetchUsers = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const response = await axios.get(`http://${IP_ADDRESS}:5000/api/user/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const users = response.data.users || [];
+      setDoctors(users.filter(user => user.role === 'doctor'));
+      setPatients(users.filter(user => user.role === 'patient' && !user.doctor)); // Filter unassigned patients only
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const token = await AsyncStorage.getItem('token');
-        const response = await axios.get(`http://${IP_ADDRESS}:5000/api/user/all`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const users = response.data.users || [];
-        setDoctors(users.filter(user => user.role === 'doctor'));
-        setPatients(users.filter(user => user.role === 'patient' && !user.doctor)); // Filter unassigned patients only
-      } catch (error) {
-        console.error('Error fetching users:', error);
-      }
-    };
-    fetchUsers();
-  }, []);
+    fetchUsers(); // Initial fetch
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchUsers(); // Re-fetch when screen is focused
+    });
+    return unsubscribe; // Cleanup listener on unmount
+  }, [navigation]);
 
   const handleAssignPatient = async () => {
     try {
@@ -43,12 +48,7 @@ const AdminDashboard = ({ navigation }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setModalVisible(false);
-      const response = await axios.get(`http://${IP_ADDRESS}:5000/api/user/all`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const users = response.data.users || [];
-      setDoctors(users.filter(user => user.role === 'doctor'));
-      setPatients(users.filter(user => user.role === 'patient' && !user.doctor)); // Update to show only unassigned patients
+      fetchUsers(); // Refresh data after assignment
       setSelectedDoctor('');
       setSelectedPatient('');
     } catch (error) {
@@ -62,12 +62,7 @@ const AdminDashboard = ({ navigation }) => {
       await axios.delete(`http://${IP_ADDRESS}:5000/api/user/user/${userId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const response = await axios.get(`http://${IP_ADDRESS}:5000/api/user/all`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const users = response.data.users || [];
-      setDoctors(users.filter(user => user.role === 'doctor'));
-      setPatients(users.filter(user => user.role === 'patient' && !user.doctor)); // Update to show only unassigned patients
+      fetchUsers(); // Refresh data after deletion
     } catch (error) {
       console.error('Error deleting user:', error);
     }
@@ -89,7 +84,7 @@ const AdminDashboard = ({ navigation }) => {
     <View style={styles.userCard}>
       <View>
         <Text style={styles.userName}>{item.name} (Patient)</Text>
-        <Text style={styles.userDetail}>Assigned Doctor: None</Text> {/* All patients here are unassigned */}
+        <Text style={styles.userDetail}>Assigned Doctor: None</Text>
       </View>
       <TouchableOpacity style={styles.deleteButton} onPress={() => handleDeleteUser(item._id)}>
         <Text style={styles.deleteButtonText}>Delete</Text>
@@ -97,19 +92,15 @@ const AdminDashboard = ({ navigation }) => {
     </View>
   );
 
-  // Filter out patients who already have a doctor assigned for the modal (already done)
-  const unassignedPatients = patients.filter(patient => !patient.doctor);
-
   return (
     <LinearGradient colors={['#E0F7FA', '#B2EBF2']} style={styles.container}>
       <View style={styles.dashboardSection}>
         <View>
           <TouchableOpacity style={styles.button} onPress={() => setModalVisible(true)}>
-            <Text style={styles.buttonText}>Assign Patient to Doctor click!</Text>
+            <Text style={styles.buttonText}>Assign Patient to Doctor</Text>
             <Image source={require('../assets/icons/doctor.png')} style={styles.imageIcon} />
-          </TouchableOpacity> 
+          </TouchableOpacity>
           <Button title="PM Edit" onPress={() => navigation.navigate('PatientManagement')} />
-         
         </View>
 
         <Text style={styles.sectionTitle}>Doctors</Text>
@@ -120,9 +111,9 @@ const AdminDashboard = ({ navigation }) => {
           ListEmptyComponent={<Text style={styles.emptyText}>No doctors available.</Text>}
         />
 
-        <Text style={styles.sectionTitle}>Pending Patients</Text> {/* Updated title */}
+        <Text style={styles.sectionTitle}>Pending Patients</Text>
         <FlatList
-          data={patients} // Already filtered to unassigned patients
+          data={patients}
           renderItem={renderPatient}
           keyExtractor={(item) => item._id}
           ListEmptyComponent={<Text style={styles.emptyText}>No pending patients available.</Text>}
@@ -153,7 +144,7 @@ const AdminDashboard = ({ navigation }) => {
               style={styles.picker}
             >
               <Picker.Item label="Select a patient" value="" />
-              {unassignedPatients.map(patient => (
+              {patients.map(patient => (
                 <Picker.Item key={patient._id} label={patient.name} value={patient._id} />
               ))}
             </Picker>
@@ -172,21 +163,14 @@ const AdminDashboard = ({ navigation }) => {
     </LinearGradient>
   );
 };
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-   
   },
   dashboardSection: {
     flex: 1,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#00796B',
-    textAlign: 'center',
-    // marginBottom: 20,
   },
   button: {
     backgroundColor: '#00796B',
@@ -194,14 +178,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 8,
     marginVertical: 2,
-    // alignSelf: 'center',
     display: 'flex',
     flexDirection: 'row',
-    // gap: 10,
-    justifyContent:"space-between",alignItems:"center",
-    // elevation: 3,
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  imageIcon: {width:26,height:26},
+  imageIcon: { width: 26, height: 26 },
   buttonText: {
     color: 'white',
     textAlign: 'center',
@@ -225,7 +207,7 @@ const styles = StyleSheet.create({
     borderLeftColor: '#00796B',
     display: 'flex',
     flexDirection: 'row',
-    justifyContent:"space-between",
+    justifyContent: "space-between",
   },
   userName: {
     fontSize: 16,
@@ -291,7 +273,7 @@ const styles = StyleSheet.create({
   cancelText: {
     color: '#666',
     textAlign: 'center',
-    fontSize: 16,
+    fontSize: 16, 
   },
 });
 
