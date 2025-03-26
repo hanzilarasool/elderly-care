@@ -17,6 +17,7 @@ const medical_chatbot = async (userInput) => {
         }
       ]
     });
+    
 
     const result = await chat.sendMessage(userInput);
     return result.response.text();

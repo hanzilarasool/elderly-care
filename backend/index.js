@@ -9,7 +9,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs'); // Add this for file system operations
 const chatRouter=require("./routes/chat-routes");
-
+const boxesRouter=require("./routes/box-routes")
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -52,6 +52,7 @@ const upload = multer({ storage });
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use("/api/chat",chatRouter);
+app.use("/api/boxes",boxesRouter);
 app.get('/', (req, res) => {
   res.status(200).json({
     message: 'Server is running',

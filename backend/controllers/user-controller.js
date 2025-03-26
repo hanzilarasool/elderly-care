@@ -3,6 +3,7 @@ const User = require("../models/user-model");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
+const Box=require("../models/box-model")
 require("dotenv").config();
 
 // Helper: Generate JWT Token
@@ -90,6 +91,14 @@ const verifyOTP = async (req, res) => {
 
     const user = await User.create({ name, email, password, role, specialization, age, gender });
     user.password = undefined;
+       // Create default boxes for new user
+        const defaultBoxes = [
+          { name: 'Morning Medications', description: 'Medicine is healing', timeSlot: '08:00 - 09:00 AM', user: user._id },
+          { name: 'Midday Medications', description: 'Health through trust', timeSlot: '12:00 - 01:00 PM', user: user._id },
+          { name: 'Night Medications', description: 'Wellness in faith', timeSlot: '08:00 - 09:00 PM', user: user._id },
+        ];
+        await Box.insertMany(defaultBoxes);
+    
 
     delete otpStore[email];
 
@@ -385,19 +394,19 @@ const uploadDocument = async (req, res) => {
 
     const filePath = `/uploads/${req.file.filename}`;
 
-    // Associate document with specific vital or disease if provided
     if (vitalIndex !== undefined) {
       if (!historyEntry.vitals[vitalIndex]) {
-        return res.status(400).json({ error: 'Invalid vital index' });
+        // Instead of throwing an error, add to general documents
+        historyEntry.documents.push(filePath);
+      } else {
+        historyEntry.vitals[vitalIndex].document = filePath;
       }
-      historyEntry.vitals[vitalIndex].document = filePath;
     } else if (diseaseIndex !== undefined) {
       if (!historyEntry.diseases[diseaseIndex]) {
         return res.status(400).json({ error: 'Invalid disease index' });
       }
       historyEntry.diseases[diseaseIndex].document = filePath;
     } else {
-      // If no specific vital or disease is specified, add to general documents
       historyEntry.documents.push(filePath);
     }
 
@@ -408,7 +417,7 @@ const uploadDocument = async (req, res) => {
       document: filePath,
       historyId,
       vitalIndex,
-      diseaseIndex
+      diseaseIndex,
     });
   } catch (error) {
     console.error('Error uploading document:', error);
@@ -418,7 +427,6 @@ const uploadDocument = async (req, res) => {
     });
   }
 };
-
 // Get All Users (Admin Only)
 const getAllUsers = async (req, res) => {
   try {

@@ -1,10 +1,10 @@
-// frontend/screens/EditPatient.js
+// frontend/screens/EditPatient.jsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, Modal, FlatList, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker'; // Replaced ImagePicker with DocumentPicker
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
@@ -51,11 +51,11 @@ const EditPatient = ({ route, navigation }) => {
 
   const pickDocument = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: [ImagePicker.MediaType.Photo, ImagePicker.MediaType.Video], // Specify allowed types
       allowsEditing: false,
       quality: 1,
     });
-
+  
     if (!result.canceled) {
       setDocument(result.assets[0].uri);
     }
@@ -66,6 +66,7 @@ const EditPatient = ({ route, navigation }) => {
       const token = await AsyncStorage.getItem('token');
       const vitals = vitalName && rate ? [{ name: vitalName.toLowerCase(), value: rate, status: status || 'Normal' }] : [];
 
+      // Add medical history
       const response = await axios.post(
         `http://${IP_ADDRESS}:5000/api/user/patient/medical-history`,
         {
@@ -78,11 +79,15 @@ const EditPatient = ({ route, navigation }) => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      // Upload document if present
       if (document) {
         const formData = new FormData();
         formData.append('patientId', patientId);
-        formData.append('historyId', response.data.medicalHistory[0]._id); // Newest entry
-        formData.append('vitalIndex', vitalName && rate ? 0 : undefined); // Attach to first vital if present
+        formData.append('historyId', response.data.medicalHistory[0]._id);
+        // Only set vitalIndex if a vital was added
+        if (vitals.length > 0) {
+          formData.append('vitalIndex', 0); // Attach to first vital
+        }
         formData.append('document', {
           uri: document,
           name: `report-${Date.now()}.${document.split('.').pop() || 'pdf'}`,
@@ -104,6 +109,7 @@ const EditPatient = ({ route, navigation }) => {
       const updatedPatient = updatedResponse.data.user.patients.find(p => p._id === patientId);
       setPatient(updatedPatient);
 
+      // Reset form and close modal
       setModalVisible(false);
       setVitalName('');
       setRate('');
@@ -152,22 +158,22 @@ const EditPatient = ({ route, navigation }) => {
       {patient ? (
         <View style={styles.profileSection}>
           <View style={styles.patientProfileSection}>
-          <Image
-            source={
-              profileImage
-                ? { uri: profileImage.startsWith('http') ? profileImage : `http://${IP_ADDRESS}:5000${profileImage}` }
-                : require("../assets/icons/profile.png")
-            }
-            style={styles.profileImage}
-          />
-          <View style={styles.nameAgeGender}>
-          <Text style={styles.name}>{name}</Text>
-         <View style={styles.genderAge}>
-         <Text style={styles.detail}>Age: {age}</Text>
-         <View style={{width:2,height:18,backgroundColor:"white"}}></View>
-          <Text style={styles.detail}>Gender: {gender}</Text>
-          </View>
-          </View>
+            <Image
+              source={
+                profileImage
+                  ? { uri: profileImage.startsWith('http') ? profileImage : `http://${IP_ADDRESS}:5000${profileImage}` }
+                  : require("../assets/icons/profile.png")
+              }
+              style={styles.profileImage}
+            />
+            <View style={styles.nameAgeGender}>
+              <Text style={styles.name}>{name}</Text>
+              <View style={styles.genderAge}>
+                <Text style={styles.detail}>Age: {age}</Text>
+                <View style={{ width: 2, height: 18, backgroundColor: "white" }}></View>
+                <Text style={styles.detail}>Gender: {gender}</Text>
+              </View>
+            </View>
           </View>
 
           <Text style={styles.sectionTitle}>Medical History</Text>
@@ -281,35 +287,21 @@ const styles = StyleSheet.create({
   profileSection: {
     // alignItems: 'center',
   },
-  patientProfileSection:{
-backgroundColor:"rgba(0,0,0,0.1)",
-display:"flex",
-flexDirection:"row",
-alignItems:"center",
-height:140,
-gap:14
-
-
+  patientProfileSection: {
+    backgroundColor: "rgba(0,0,0,0.1)",
+    display: "flex",
+    flexDirection: "row",
+    alignItems: "center",
+    height: 140,
+    gap: 14,
   },
-
-  nameAgeGender:{width:"auto",gap:10},
-  name:{fontSize:22,fontWeight:"700"},
-  genderAge:{display:"flex",flexDirection:"row",gap:15},
+  nameAgeGender: { width: "auto", gap: 10 },
+  name: { fontSize: 22, fontWeight: "700" },
+  genderAge: { display: "flex", flexDirection: "row", gap: 15 },
   profileImage: {
     width: 130,
     height: 130,
-    // borderRadius: 50,
-    borderRadius:12,
-    // marginBottom: 10,
-    
-  },
-  cameraIcon: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     borderRadius: 12,
-    padding: 5,
   },
   input: {
     height: 50,
@@ -415,7 +407,6 @@ gap:14
     textAlign: 'center',
     marginBottom: 10,
   },
-  // New style for document viewer (only added, not modifying existing)
   documentImage: {
     width: '100%',
     height: 400,
