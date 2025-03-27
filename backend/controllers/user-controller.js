@@ -1,22 +1,18 @@
-// backend/controllers/user-controller.js
 const User = require("../models/user-model");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
-const Box=require("../models/box-model")
+const Box = require("../models/box-model");
 require("dotenv").config();
 
-// Helper: Generate JWT Token
 const signToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
 };
 
-// In-memory OTP store (use Redis or MongoDB in production)
 const otpStore = {};
 
-// Nodemailer configuration
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -25,12 +21,10 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Generate a 6-digit OTP
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// Send OTP via email
 const sendOTPEmail = async (email, otp) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
@@ -48,7 +42,6 @@ const sendOTPEmail = async (email, otp) => {
   }
 };
 
-// Register User (Step 1: Send OTP)
 const register = async (req, res) => {
   try {
     const { name, email, password, role, specialization, age, gender } = req.body;
@@ -74,7 +67,6 @@ const register = async (req, res) => {
   }
 };
 
-// Verify OTP and Complete Registration (Step 2)
 const verifyOTP = async (req, res) => {
   try {
     const { name, email, password, role, specialization, age, gender, otp } = req.body;
@@ -91,14 +83,12 @@ const verifyOTP = async (req, res) => {
 
     const user = await User.create({ name, email, password, role, specialization, age, gender });
     user.password = undefined;
-       // Create default boxes for new user
-        const defaultBoxes = [
-          { name: 'Morning Medications', description: 'Medicine is healing', timeSlot: '08:00 - 09:00 AM', user: user._id },
-          { name: 'Midday Medications', description: 'Health through trust', timeSlot: '12:00 - 01:00 PM', user: user._id },
-          { name: 'Night Medications', description: 'Wellness in faith', timeSlot: '08:00 - 09:00 PM', user: user._id },
-        ];
-        await Box.insertMany(defaultBoxes);
-    
+    const defaultBoxes = [
+      { name: 'Morning Medications', description: 'Medicine is healing', timeSlot: '08:00 - 09:00 AM', user: user._id },
+      { name: 'Midday Medications', description: 'Health through trust', timeSlot: '12:00 - 01:00 PM', user: user._id },
+      { name: 'Night Medications', description: 'Wellness in faith', timeSlot: '08:00 - 09:00 PM', user: user._id },
+    ];
+    await Box.insertMany(defaultBoxes);
 
     delete otpStore[email];
 
@@ -115,7 +105,6 @@ const verifyOTP = async (req, res) => {
   }
 };
 
-// Login User
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -159,7 +148,6 @@ const login = async (req, res) => {
   }
 };
 
-// Get Current User Profile
 const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).populate('patients');
@@ -176,7 +164,6 @@ const getMe = async (req, res) => {
   }
 };
 
-// Update User Profile
 const updateMe = async (req, res) => {
   try {
     const filteredBody = {
@@ -208,7 +195,6 @@ const updateMe = async (req, res) => {
   }
 };
 
-// Upload Profile Image
 const uploadProfileImage = async (req, res) => {
   try {
     if (!req.file) {
@@ -239,7 +225,6 @@ const uploadProfileImage = async (req, res) => {
   }
 };
 
-// Delete User (Admin Only)
 const deleteUser = async (req, res) => {
   try {
     await User.findByIdAndDelete(req.params.id);
@@ -255,7 +240,6 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// Assign Patient to Doctor (Admin Only)
 const assignPatientToDoctor = async (req, res) => {
   try {
     const { doctorId, patientId } = req.body;
@@ -299,7 +283,6 @@ const assignPatientToDoctor = async (req, res) => {
   }
 };
 
-// Logout User
 const logout = (req, res) => {
   res.status(200).json({
     status: "success",
@@ -308,7 +291,6 @@ const logout = (req, res) => {
   });
 };
 
-// Update Patient Medical History
 const updatePatientMedicalHistory = async (req, res) => {
   try {
     const { patientId, vitals, diseases, notes, status } = req.body;
@@ -331,25 +313,24 @@ const updatePatientMedicalHistory = async (req, res) => {
       return res.status(400).json({ error: 'Invalid status value' });
     }
 
-    // Construct the new history entry with structured vitals and diseases
     const newHistory = {
       date: new Date(),
       vitals: vitals ? vitals.map(v => ({
         name: v.name,
         value: v.value,
         status: v.status || 'Normal',
-        document: v.document || null // Document path if provided
+        document: v.document || null
       })) : [],
       diseases: diseases ? diseases.map(d => ({
         name: d.name,
-        document: d.document || null // Document path if provided
+        document: d.document || null
       })) : [],
       notes: notes || '',
-      documents: [], // Additional documents not tied to vitals/diseases
+      documents: [],
       status: status || 'Normal',
     };
 
-    patient.medicalHistory.unshift(newHistory); // Add to the beginning
+    patient.medicalHistory.unshift(newHistory);
     await patient.save();
 
     res.status(200).json({
@@ -365,10 +346,9 @@ const updatePatientMedicalHistory = async (req, res) => {
   }
 };
 
-// Upload Document (Updated to associate with specific vital or disease)
 const uploadDocument = async (req, res) => {
   try {
-    const { patientId, historyId, vitalIndex, diseaseIndex } = req.body;
+    const { patientId, historyId, vitalIndex } = req.body;
 
     if (req.user.role !== 'doctor') {
       return res.status(403).json({ error: 'Unauthorized: Only doctors can upload documents' });
@@ -394,20 +374,10 @@ const uploadDocument = async (req, res) => {
 
     const filePath = `/uploads/${req.file.filename}`;
 
-    if (vitalIndex !== undefined) {
-      if (!historyEntry.vitals[vitalIndex]) {
-        // Instead of throwing an error, add to general documents
-        historyEntry.documents.push(filePath);
-      } else {
-        historyEntry.vitals[vitalIndex].document = filePath;
-      }
-    } else if (diseaseIndex !== undefined) {
-      if (!historyEntry.diseases[diseaseIndex]) {
-        return res.status(400).json({ error: 'Invalid disease index' });
-      }
-      historyEntry.diseases[diseaseIndex].document = filePath;
+    if (vitalIndex !== undefined && historyEntry.vitals[vitalIndex]) {
+      historyEntry.vitals[vitalIndex].document = filePath;
     } else {
-      historyEntry.documents.push(filePath);
+      historyEntry.documents.push(filePath); // Fallback to general documents
     }
 
     await patient.save();
@@ -417,7 +387,6 @@ const uploadDocument = async (req, res) => {
       document: filePath,
       historyId,
       vitalIndex,
-      diseaseIndex,
     });
   } catch (error) {
     console.error('Error uploading document:', error);
@@ -427,7 +396,7 @@ const uploadDocument = async (req, res) => {
     });
   }
 };
-// Get All Users (Admin Only)
+
 const getAllUsers = async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
@@ -451,7 +420,6 @@ const getAllUsers = async (req, res) => {
   }
 };
 
-// Get Doctor Alerts (Updated for new vital status)
 const getDoctorAlerts = async (req, res) => {
   try {
     if (req.user.role !== 'doctor') {
@@ -481,7 +449,6 @@ const getDoctorAlerts = async (req, res) => {
   }
 };
 
-// Get Patient Alerts
 const getPatientAlerts = async (req, res) => {
   try {
     if (req.user.role !== 'doctor') {
@@ -503,7 +470,6 @@ const getPatientAlerts = async (req, res) => {
   }
 };
 
-// Dismiss Alert
 const dismissAlert = async (req, res) => {
   try {
     const { patientId, alertId } = req.body;
@@ -526,7 +492,6 @@ const dismissAlert = async (req, res) => {
   }
 };
 
-// Update Patient Profile (No changes needed here for document functionality)
 const updatePatientProfile = async (req, res) => {
   try {
     const { patientId } = req.body;
@@ -568,7 +533,6 @@ const updatePatientProfile = async (req, res) => {
   }
 };
 
-// Unassign Patient from Doctor (Admin Only)
 const unassignPatientFromDoctor = async (req, res) => {
   try {
     const { patientId } = req.body;

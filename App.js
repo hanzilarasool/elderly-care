@@ -1,11 +1,11 @@
 // frontend/App.js
 import React from 'react';
-import { View } from 'react-native';
+import { View ,Text} from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
-import Signup from './screens/Singup'; // Fixed typo: "Singup" → "Signup"
+import Signup from './screens/Singup'; 
 import Login from './screens/Login';
 import DoctorProfile from './screens/DoctorProfile';
 import PatientProfile from './screens/PatientProfile';
@@ -13,7 +13,7 @@ import AdminDashboard from './screens/AdminDashboard';
 import PatientDetails from './screens/PatientDetails';
 import EditPatient from './screens/EditPatient';
 import Reports from './screens/Reports';
-import Alerts from './screens/Alerts';
+
 import PatientManagement from './screens/PatientManagement';
 import Precautions from './screens/Precautions';
 import PrecautionDetails from './screens/PrecautionDetails';
@@ -21,15 +21,22 @@ import EmergencyProtocols from './screens/EmergencyProtocols';
 import EmergencyDetails from './screens/EmergencyDetails';
 import PatientAwareness from './screens/PatientAwareness';
 import BoxesScreen from './screens/BoxesScreen';
-import BoxDetailScreen from "./screens/BoxDetailScreen"
+import BoxDetailScreen from './screens/BoxDetailScreen';
 import AwarenessDetails from './screens/AwarenessDetails';
 import { BoxesProvider } from './contexts/BoxesContext';
-
+import { ErrorBoundary } from 'react-error-boundary';
+import Alerts from './screens/Alerts';
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
-
-const DoctorDrawer = () => (
-  <Drawer.Navigator
+const ErrorFallback = ({ error }) => (
+  <View>
+    <Text>Something went wrong: {error.message}</Text>
+  </View>
+);
+console.log('Rendering DoctorDrawer');
+const DoctorDrawer = () => {
+console.log("inside rendering doctor drawer");
+ return <Drawer.Navigator
     screenOptions={{
       drawerStyle: { backgroundColor: '#201919', width: 240 },
       drawerLabelStyle: { color: '#fff', fontSize: 16 },
@@ -42,8 +49,10 @@ const DoctorDrawer = () => (
     <Drawer.Screen name="DoctorProfile" component={DoctorProfile} />
     <Drawer.Screen name="Precautions" component={Precautions} />
     <Drawer.Screen name="Emergency Protocols" component={EmergencyProtocols} />
+    <Drawer.Screen name="Alerts" component={Alerts} />
+    {/* <Drawer.Screen name="Alerts" component={Alerts} /> */}
   </Drawer.Navigator>
-);
+};
 
 const PatientDrawer = () => (
   <Drawer.Navigator
@@ -57,13 +66,14 @@ const PatientDrawer = () => (
     }}
   >
     <Drawer.Screen name="PatientProfile" component={PatientProfile} />
-    <Drawer.Screen name="Medicines" component={BoxesScreen} /> 
+    <Drawer.Screen name="Medicines" component={BoxesScreen} />
     <Drawer.Screen name="PatientAwareness" component={PatientAwareness} />
   </Drawer.Navigator>
 );
 
 export default function App() {
   return (
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
     <BoxesProvider>
       <NavigationContainer>
         <Stack.Navigator
@@ -120,5 +130,6 @@ export default function App() {
         </Stack.Navigator>
       </NavigationContainer>
     </BoxesProvider>
+    </ErrorBoundary>
   );
 }

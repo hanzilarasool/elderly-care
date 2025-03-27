@@ -1,14 +1,21 @@
-// frontend/screens/EditPatient.jsx
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, Modal, FlatList, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, Modal, FlatList, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import * as DocumentPicker from 'expo-document-picker'; // Replaced ImagePicker with DocumentPicker
+import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import Pdf from 'react-native-pdf'; // For native platforms
+import { Document, Page, pdfjs } from 'react-pdf'; // For web
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css'; // Required for react-pdf on web
 
-const IP_ADDRESS = Constants.expoConfig.extra.IP_ADDRESS;
+// Set PDF.js worker for web
+if (Platform.OS === 'web') {
+  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+}
+
+const IP_ADDRESS = Constants?.expoConfig?.extra?.IP_ADDRESS || '192.168.1.13';
 
 const EditPatient = ({ route, navigation }) => {
   const { patientId } = route.params;
@@ -24,7 +31,8 @@ const EditPatient = ({ route, navigation }) => {
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('');
   const [document, setDocument] = useState(null);
-  const [selectedDocument, setSelectedDocument] = useState(null); // For viewing existing documents
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [numPages, setNumPages] = useState(null); // For web PDF
 
   useEffect(() => {
     const fetchPatient = async () => {
@@ -50,14 +58,32 @@ const EditPatient = ({ route, navigation }) => {
   }, [patientId]);
 
   const pickDocument = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: [ImagePicker.MediaType.Photo, ImagePicker.MediaType.Video], // Specify allowed types
-      allowsEditing: false,
-      quality: 1,
-    });
-  
-    if (!result.canceled) {
-      setDocument(result.assets[0].uri);
+    if (Platform.OS === 'web') {
+      // Web file picker (simplified, assumes input element usage)
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*,application/pdf';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          setDocument({ uri: URL.createObjectURL(file), name: file.name });
+        }
+      };
+      input.click();
+    } else {
+      try {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: '*/*',
+          copyToCacheDirectory: true,
+        });
+        if (result.type === 'success') {
+          setDocument(result);
+        } else {
+          console.log('Document picking cancelled');
+        }
+      } catch (error) {
+        console.error('Error picking document:', error);
+      }
     }
   };
 
@@ -66,7 +92,6 @@ const EditPatient = ({ route, navigation }) => {
       const token = await AsyncStorage.getItem('token');
       const vitals = vitalName && rate ? [{ name: vitalName.toLowerCase(), value: rate, status: status || 'Normal' }] : [];
 
-      // Add medical history
       const response = await axios.post(
         `http://${IP_ADDRESS}:5000/api/user/patient/medical-history`,
         {
@@ -79,19 +104,17 @@ const EditPatient = ({ route, navigation }) => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Upload document if present
       if (document) {
         const formData = new FormData();
         formData.append('patientId', patientId);
         formData.append('historyId', response.data.medicalHistory[0]._id);
-        // Only set vitalIndex if a vital was added
         if (vitals.length > 0) {
-          formData.append('vitalIndex', 0); // Attach to first vital
+          formData.append('vitalIndex', 0);
         }
         formData.append('document', {
-          uri: document,
-          name: `report-${Date.now()}.${document.split('.').pop() || 'pdf'}`,
-          type: 'application/octet-stream',
+          uri: document.uri,
+          name: document.name || `report-${Date.now()}.${document.uri.split('.').pop() || 'file'}`,
+          type: document.mimeType || 'application/octet-stream',
         });
 
         await axios.post(`http://${IP_ADDRESS}:5000/api/user/upload-document`, formData, {
@@ -102,14 +125,12 @@ const EditPatient = ({ route, navigation }) => {
         });
       }
 
-      // Fetch updated patient data
       const updatedResponse = await axios.get(`http://${IP_ADDRESS}:5000/api/user/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const updatedPatient = updatedResponse.data.user.patients.find(p => p._id === patientId);
       setPatient(updatedPatient);
 
-      // Reset form and close modal
       setModalVisible(false);
       setVitalName('');
       setRate('');
@@ -140,7 +161,10 @@ const EditPatient = ({ route, navigation }) => {
             <Text style={styles.reportText}>{vitalItem.report}</Text>
             {vitalItem.document !== 'N/A' ? (
               <TouchableOpacity
-                onPress={() => setSelectedDocument(vitalItem.document)}
+                onPress={() => {
+                  console.log('Viewing document:', vitalItem.document);
+                  setSelectedDocument(vitalItem.document);
+                }}
               >
                 <Text style={[styles.reportText, { color: '#00796B' }]}>View</Text>
               </TouchableOpacity>
@@ -153,6 +177,10 @@ const EditPatient = ({ route, navigation }) => {
     );
   };
 
+  const onDocumentLoadSuccess = ({ numPages }) => {
+    setNumPages(numPages); // For web PDF
+  };
+
   return (
     <LinearGradient colors={['#E0F7FA', '#B2EBF2']} style={styles.container}>
       {patient ? (
@@ -162,7 +190,7 @@ const EditPatient = ({ route, navigation }) => {
               source={
                 profileImage
                   ? { uri: profileImage.startsWith('http') ? profileImage : `http://${IP_ADDRESS}:5000${profileImage}` }
-                  : require("../assets/icons/profile.png")
+                  : require('../assets/icons/profile.png')
               }
               style={styles.profileImage}
             />
@@ -170,7 +198,7 @@ const EditPatient = ({ route, navigation }) => {
               <Text style={styles.name}>{name}</Text>
               <View style={styles.genderAge}>
                 <Text style={styles.detail}>Age: {age}</Text>
-                <View style={{ width: 2, height: 18, backgroundColor: "white" }}></View>
+                <View style={{ width: 2, height: 18, backgroundColor: 'white' }} />
                 <Text style={styles.detail}>Gender: {gender}</Text>
               </View>
             </View>
@@ -186,7 +214,7 @@ const EditPatient = ({ route, navigation }) => {
           <FlatList
             data={patient.medicalHistory || []}
             renderItem={renderCheckupReport}
-            keyExtractor={(item) => item._id}
+            keyExtractor={(item) => item._id.toString()}
             ListEmptyComponent={<Text style={styles.emptyText}>No medical history available.</Text>}
           />
           <TouchableOpacity style={styles.button} onPress={() => setModalVisible(true)}>
@@ -236,7 +264,11 @@ const EditPatient = ({ route, navigation }) => {
             <TouchableOpacity style={styles.button} onPress={pickDocument}>
               <Text style={styles.buttonText}>Attach Document</Text>
             </TouchableOpacity>
-            {document && <Text style={styles.documentText}>Document Selected: {document.split('/').pop()}</Text>}
+            {document && (
+              <Text style={styles.documentText}>
+                Document Selected: {document.name || document.uri.split('/').pop()}
+              </Text>
+            )}
             <TouchableOpacity style={styles.button} onPress={handleAddMedicalHistory}>
               <Text style={styles.buttonText}>Add</Text>
             </TouchableOpacity>
@@ -259,11 +291,32 @@ const EditPatient = ({ route, navigation }) => {
             {selectedDocument && (
               <>
                 <Text style={styles.modalTitle}>Document Viewer</Text>
-                <Image
-                  source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}` }}
-                  style={styles.documentImage}
-                  resizeMode="contain"
-                />
+                {selectedDocument.endsWith('.pdf') ? (
+                  Platform.OS === 'web' ? (
+                    <Document
+                      file={`http://${IP_ADDRESS}:5000${selectedDocument}`}
+                      onLoadSuccess={onDocumentLoadSuccess}
+                      onLoadError={(error) => console.error('Web PDF load error:', error)}
+                    >
+                      {Array.from(new Array(numPages || 1), (el, index) => (
+                        <Page key={`page_${index + 1}`} pageNumber={index + 1} width={styles.documentImage.width} />
+                      ))}
+                    </Document>
+                  ) : (
+                    <Pdf
+                      source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}`, cache: true }}
+                      style={styles.documentImage}
+                      onError={(error) => console.error('PDF load error:', error)}
+                    />
+                  )
+                ) : (
+                  <Image
+                    source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}` }}
+                    style={styles.documentImage}
+                    resizeMode="contain"
+                    onError={(e) => console.error('Image load error:', e.nativeEvent.error)}
+                  />
+                )}
                 <TouchableOpacity
                   style={styles.button}
                   onPress={() => setSelectedDocument(null)}
@@ -284,20 +337,18 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  profileSection: {
-    // alignItems: 'center',
-  },
+  profileSection: {},
   patientProfileSection: {
-    backgroundColor: "rgba(0,0,0,0.1)",
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "center",
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
     height: 140,
     gap: 14,
   },
-  nameAgeGender: { width: "auto", gap: 10 },
-  name: { fontSize: 22, fontWeight: "700" },
-  genderAge: { display: "flex", flexDirection: "row", gap: 15 },
+  nameAgeGender: { width: 'auto', gap: 10 },
+  name: { fontSize: 22, fontWeight: '700' },
+  genderAge: { display: 'flex', flexDirection: 'row', gap: 15 },
   profileImage: {
     width: 130,
     height: 130,
@@ -408,7 +459,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   documentImage: {
-    width: '100%',
+    width: Platform.OS === 'web' ? '90%' : '100%', // Adjust for web
     height: 400,
   },
 });

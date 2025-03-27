@@ -1,12 +1,13 @@
-// frontend/screens/PatientProfile.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Image, StyleSheet, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Image, StyleSheet, Modal, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import Constants from "expo-constants";
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from "expo-location";
+import { Accelerometer } from 'expo-sensors';
 
 const IP_ADDRESS = Constants.expoConfig.extra.IP_ADDRESS;
 
@@ -19,6 +20,11 @@ const PatientProfile = ({ navigation }) => {
   const [profileImage, setProfileImage] = useState(null);
   const [medicalHistory, setMedicalHistory] = useState([]);
   const [selectedDocument, setSelectedDocument] = useState(null);
+  const [locationCoords, setLocationCoords] = useState('Unknown');
+  const [locationAddress, setLocationAddress] = useState('Unknown');
+  const [fallDetected, setFallDetected] = useState(false);
+
+  const ACCELERATION_THRESHOLD = 2.5;
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -34,13 +40,111 @@ const PatientProfile = ({ navigation }) => {
         const response = await axios.get(`http://${IP_ADDRESS}:5000/api/user/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setMedicalHistory(response.data.user.medicalHistory || []);
+        const medicalHistoryData = Array.isArray(response.data.user.medicalHistory)
+          ? response.data.user.medicalHistory
+          : [];
+        setMedicalHistory(medicalHistoryData);
+        const lastKnown = response.data.user.lastKnownLocation || 'Unknown';
+        setLocationCoords(lastKnown);
+        setUser(response.data.user);
+        await AsyncStorage.setItem('user', JSON.stringify(response.data.user));
+
+        if (lastKnown !== 'Unknown') {
+          const [lat, lon] = lastKnown.split(', ').map(Number);
+          const address = await reverseGeocode(lat, lon);
+          setLocationAddress(address);
+        }
       } catch (error) {
         console.error('Error fetching profile:', error.response?.data || error.message);
+        setMedicalHistory([]);
       }
     };
     fetchProfile();
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        console.log("Location permission denied");
+        return;
+      }
+      let loc = await Location.getCurrentPositionAsync({});
+      const newLocationCoords = `${loc.coords.latitude}, ${loc.coords.longitude}`;
+      setLocationCoords(newLocationCoords);
+
+      const address = await reverseGeocode(loc.coords.latitude, loc.coords.longitude);
+      setLocationAddress(address);
+
+      const token = await AsyncStorage.getItem('token');
+      await axios.patch(
+        `http://${IP_ADDRESS}:5000/api/user/me`,
+        { lastKnownLocation: newLocationCoords },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    })();
+  }, []);
+
+  const reverseGeocode = async (latitude, longitude) => {
+    try {
+      const result = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (result.length > 0) {
+        const { street, city, region, country } = result[0];
+        return `${street || ''} ${city || ''}, ${region || ''}, ${country || ''}`.trim() || 'Unknown Address';
+      }
+      return 'Unknown Address';
+    } catch (error) {
+      console.error('Error reverse geocoding:', error);
+      return 'Unknown Address';
+    }
+  };
+
+  useEffect(() => {
+    let subscription;
+    const startFallDetection = async () => {
+      subscription = Accelerometer.addListener(accelerometerData => {
+        const { x, y, z } = accelerometerData;
+        const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
+
+        if (totalAcceleration > ACCELERATION_THRESHOLD && !fallDetected) {
+          handleFallDetected();
+        }
+      });
+      Accelerometer.setUpdateInterval(100);
+    };
+
+    startFallDetection();
+
+    return () => {
+      if (subscription) {
+        subscription.remove();
+      }
+    };
+  }, [fallDetected, locationCoords, user]);
+
+  const handleFallDetected = async () => {
+    setFallDetected(true);
+    Alert.alert("⚠️ Fall Detected!", "Emergency alert sent to your doctor!");
+
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const userData = JSON.parse(await AsyncStorage.getItem('user'));
+      const response = await axios.post(
+        `http://${IP_ADDRESS}:5000/api/falls/detect`,
+        {
+          email: userData.email,
+          location: locationCoords,
+          doctorId: userData.doctor,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      console.log("Fall alert sent:", response.data);
+      setTimeout(() => setFallDetected(false), 5000);
+    } catch (error) {
+      console.error("❌ Error sending fall alert:", error.response?.data || error.message);
+      Alert.alert("Error", "Failed to send fall alert: " + (error.response?.data?.error || error.message));
+    }
+  };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -111,6 +215,8 @@ const PatientProfile = ({ navigation }) => {
       report: vital.value,
       document: vital.document || 'N/A',
     }));
+
+    console.log("Vital data for item", index, ":", vitalData);
 
     return (
       <View>
@@ -190,13 +296,13 @@ const PatientProfile = ({ navigation }) => {
                     : 'No Medical Conditions'}
                 </Text>
               </TouchableOpacity>
+              <Text style={styles.detail}>Last Known Location: {locationAddress}</Text>
             </>
           )}
 
-          {/* Buttons Section */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.button, styles.cancelButton]} // Added cancelButton style for distinction
+              style={[styles.button, styles.cancelButton]}
               onPress={() => setIsEditing(!isEditing)}
             >
               <Text style={styles.buttonText}>{isEditing ? 'Cancel' : 'Edit Profile'}</Text>
@@ -218,13 +324,12 @@ const PatientProfile = ({ navigation }) => {
           <FlatList
             data={medicalHistory}
             renderItem={renderCheckupReport}
-            keyExtractor={(item) => item._id}
+            keyExtractor={(item) => item._id.toString()}
             ListEmptyComponent={<Text style={styles.emptyText}>No medical history available.</Text>}
             style={styles.medicalHistoryList}
             contentContainerStyle={styles.medicalHistoryContent}
           />
 
-          {/* Document Viewer Modal */}
           <Modal
             visible={!!selectedDocument}
             transparent={true}
@@ -318,9 +423,9 @@ const styles = StyleSheet.create({
     color: '#6e6e6d',
   },
   buttonContainer: {
-    flexDirection: 'row', // Align buttons horizontally
-    justifyContent: 'space-between', // Space them evenly
-    width: '80%', // Match input width for consistency
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '80%',
     marginVertical: 10,
   },
   button: {
@@ -328,15 +433,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
-    flex: 1, // Equal width for both buttons
-    marginHorizontal: 5, // Space between buttons
+    flex: 1,
+    marginHorizontal: 5,
     alignItems: 'center',
   },
   cancelButton: {
     backgroundColor: '#9a4b4b',
-    
-   
-    // Red for Cancel to distinguish it
   },
   buttonText: {
     color: 'white',

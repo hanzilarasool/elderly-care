@@ -1,4 +1,3 @@
-// backend/routes/userRoutes.js
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/auth');
@@ -31,8 +30,8 @@ const {
   getDoctorAlerts,
   getPatientAlerts,
   dismissAlert,
-  updatePatientProfile, // Add the new controller function
-  unassignPatientFromDoctor
+  updatePatientProfile,
+  unassignPatientFromDoctor,
 } = require('../controllers/user-controller');
 
 // Public Routes
@@ -49,7 +48,7 @@ router.post('/logout', protect, logout);
 
 // Patient Routes
 router.post('/patient/medical-history', protect, updatePatientMedicalHistory);
-router.post('/patient/update-profile', protect, updatePatientProfile); // Add the new route
+router.post('/patient/update-profile', protect, updatePatientProfile);
 
 // Doctor Alert Routes
 router.get('/alerts', protect, getDoctorAlerts);
@@ -60,7 +59,6 @@ router.post('/patient/dismiss-alert', protect, dismissAlert);
 router.get('/all', protect, restrictTo('admin'), getAllUsers);
 router.delete('/user/:id', protect, restrictTo('admin'), deleteUser);
 router.post('/assign-patient', protect, restrictTo('admin'), assignPatientToDoctor);
-// unassign-patient route
 router.post('/unassign-patient', protect, restrictTo('admin'), unassignPatientFromDoctor);
 
 module.exports = router;

@@ -1,4 +1,3 @@
-// backend/seed.js
 const mongoose = require('mongoose');
 const User = require('./models/user-model');
 const dotenv = require('dotenv');
@@ -35,7 +34,7 @@ const seedData = async () => {
     await admin.save();
     console.log('Admin seeded successfully');
 
-    // Doctors
+    // Doctors with initial alerts
     const doctors = [
       {
         name: 'Dr. Ahmed Khan',
@@ -45,8 +44,9 @@ const seedData = async () => {
         age: 35,
         gender: 'M',
         specialization: 'Cardiology',
-        profileImage: '/uploads/doctor1-profile.png', // Male
+        profileImage: '/uploads/doctor1-profile.png',
         patients: [],
+        alerts: [], // Will be populated with patient fall alerts later
       },
       {
         name: 'Dr. Sobia Malik',
@@ -56,8 +56,9 @@ const seedData = async () => {
         age: 32,
         gender: 'F',
         specialization: 'Neurology',
-        profileImage: '/uploads/doctor4-profile.png', // Female
+        profileImage: '/uploads/doctor4-profile.png',
         patients: [],
+        alerts: [],
       },
       {
         name: 'Dr. Faisal Ahmed',
@@ -67,30 +68,9 @@ const seedData = async () => {
         age: 38,
         gender: 'M',
         specialization: 'Orthopedics',
-        profileImage: '/uploads/doctor2-profile.png', // Male
+        profileImage: '/uploads/doctor2-profile.png',
         patients: [],
-      },
-      {
-        name: 'Dr. Amina Rashid',
-        email: 'amina.rashid@doctor.com',
-        password: 'doctor123',
-        role: 'doctor',
-        age: 34,
-        gender: 'F',
-        specialization: 'Pediatrics',
-        profileImage: '/uploads/doctor4-profile.png', // Female
-        patients: [],
-      },
-      {
-        name: 'Dr. Zafar Iqbal',
-        email: 'zafar.iqbal@doctor.com',
-        password: 'doctor123',
-        role: 'doctor',
-        age: 40,
-        gender: 'M',
-        specialization: 'General Medicine',
-        profileImage: '/uploads/doctor3-profile.png', // Male
-        patients: [],
+        alerts: [],
       },
     ];
 
@@ -102,7 +82,7 @@ const seedData = async () => {
       console.log(`Doctor ${doctor.name} seeded successfully`);
     }
 
-    // Patients with new medical history structure
+    // Patients with lastKnownLocation and medical history
     const patients = [
       {
         name: pakistaniNames[0], // Ayesha Khan (F)
@@ -111,18 +91,18 @@ const seedData = async () => {
         role: 'patient',
         age: 65,
         gender: 'F',
-        profileImage: '/uploads/patient1-profile.png', // Female
+        profileImage: '/uploads/patient1-profile.png',
         doctor: savedDoctors[0]._id, // Dr. Ahmed Khan
+        lastKnownLocation: 'House #12, Street 5, Gulshan-e-Iqbal, Karachi',
         medicalHistory: [
           {
             date: new Date(),
             vitals: [
               { name: 'blood pressure', value: '120/80', status: 'Normal', document: '/uploads/patient1-report1.pdf' },
               { name: 'heart rate', value: '72', status: 'Normal' },
-              { name: 'oxygen level', value: '98', status: 'Normal' },
             ],
             diseases: [{ name: 'Hypertension' }],
-            notes: 'Stable condition, regular monitoring needed.',
+            notes: 'Stable condition.',
             documents: [],
             status: 'Normal',
           },
@@ -135,15 +115,15 @@ const seedData = async () => {
         role: 'patient',
         age: 70,
         gender: 'F',
-        profileImage: '/uploads/patient1-profile.png', // Female
+        profileImage: '/uploads/patient1-profile.png',
         doctor: savedDoctors[1]._id, // Dr. Sobia Malik
+        lastKnownLocation: 'Flat #3, Block A, Defence Housing Authority, Lahore',
         medicalHistory: [
           {
             date: new Date(),
             vitals: [
               { name: 'blood pressure', value: '130/85', status: 'Normal', document: '/uploads/patient2-report1.pdf' },
               { name: 'heart rate', value: '80', status: 'Normal' },
-              { name: 'temperature', value: '36.6', status: 'Normal' },
             ],
             diseases: [{ name: 'Diabetes' }],
             notes: 'Controlled with medication.',
@@ -159,8 +139,9 @@ const seedData = async () => {
         role: 'patient',
         age: 68,
         gender: 'M',
-        profileImage: '/uploads/patient2-profile.png', // Male
+        profileImage: '/uploads/patient2-profile.png',
         doctor: savedDoctors[2]._id, // Dr. Faisal Ahmed
+        lastKnownLocation: 'Apartment #10, Sector F-7, Islamabad',
         medicalHistory: [
           {
             date: new Date(),
@@ -182,8 +163,9 @@ const seedData = async () => {
         role: 'patient',
         age: 72,
         gender: 'F',
-        profileImage: '/uploads/patient1-profile.png', // Female
-        doctor: savedDoctors[3]._id, // Dr. Amina Rashid
+        profileImage: '/uploads/patient1-profile.png',
+        doctor: savedDoctors[0]._id, // Dr. Ahmed Khan
+        lastKnownLocation: 'Villa #5, Model Town, Lahore',
         medicalHistory: [
           {
             date: new Date(),
@@ -198,126 +180,14 @@ const seedData = async () => {
           },
         ],
       },
-      {
-        name: pakistaniNames[4], // Omar Farooq (M)
-        email: 'omar.farooq@patient.com',
-        password: 'patient123',
-        role: 'patient',
-        age: 67,
-        gender: 'M',
-        profileImage: '/uploads/patient3-profile.png', // Male
-        doctor: savedDoctors[4]._id, // Dr. Zafar Iqbal
-        medicalHistory: [
-          {
-            date: new Date(),
-            vitals: [
-              { name: 'blood pressure', value: '135/85', status: 'Normal' },
-              { name: 'heart rate', value: '78', status: 'Normal', document: '/uploads/patient5-report1.pdf' },
-            ],
-            diseases: [{ name: 'Heart Disease' }],
-            notes: 'Stable, follow-up in 2 weeks.',
-            documents: [],
-            status: 'Normal',
-          },
-        ],
-      },
-      {
-        name: pakistaniNames[5], // Sana Ali (F)
-        email: 'sana.ali@patient.com',
-        password: 'patient123',
-        role: 'patient',
-        age: 69,
-        gender: 'F',
-        profileImage: '/uploads/patient1-profile.png', // Female
-        doctor: savedDoctors[0]._id, // Dr. Ahmed Khan
-        medicalHistory: [
-          {
-            date: new Date(),
-            vitals: [
-              { name: 'blood pressure', value: '125/80', status: 'Normal' },
-              { name: 'oxygen level', value: '97', status: 'Normal', document: '/uploads/patient6-report1.pdf' },
-            ],
-            diseases: [{ name: 'Osteoporosis' }],
-            notes: 'Calcium supplements prescribed.',
-            documents: [],
-            status: 'Normal',
-          },
-        ],
-      },
-      {
-        name: pakistaniNames[6], // Bilal Hussain (M)
-        email: 'bilal.hussain@patient.com',
-        password: 'patient123',
-        role: 'patient',
-        age: 71,
-        gender: 'M',
-        profileImage: '/uploads/patient4-profile.png', // Male
-        doctor: savedDoctors[1]._id, // Dr. Sobia Malik
-        medicalHistory: [
-          {
-            date: new Date(),
-            vitals: [
-              { name: 'blood pressure', value: '145/95', status: 'High', document: '/uploads/patient7-report1.pdf' },
-              { name: 'heart rate', value: '90', status: 'Normal' },
-            ],
-            diseases: [{ name: 'Hypertension' }, { name: 'Diabetes' }],
-            notes: 'Medication adjustment needed.',
-            documents: [],
-            status: 'High',
-          },
-        ],
-      },
-      {
-        name: pakistaniNames[7], // Nadia Sheikh (F)
-        email: 'nadia.sheikh@patient.com',
-        password: 'patient123',
-        role: 'patient',
-        age: 66,
-        gender: 'F',
-        profileImage: '/uploads/patient1-profile.png', // Female
-        doctor: savedDoctors[2]._id, // Dr. Faisal Ahmed
-        medicalHistory: [
-          {
-            date: new Date(),
-            vitals: [
-              { name: 'blood pressure', value: '115/75', status: 'Normal' },
-              { name: 'temperature', value: '37.0', status: 'Normal', document: '/uploads/patient8-report1.pdf' },
-            ],
-            diseases: [{ name: 'Chronic Fatigue' }],
-            notes: 'Rest recommended.',
-            documents: [],
-            status: 'Normal',
-          },
-        ],
-      },
-      {
-        name: pakistaniNames[8], // Usman Chaudhry (M)
-        email: 'usman.chaudhry@patient.com',
-        password: 'patient123',
-        role: 'patient',
-        age: 73,
-        gender: 'M',
-        profileImage: '/uploads/patient2-profile.png', // Male
-        doctor: savedDoctors[3]._id, // Dr. Amina Rashid
-        medicalHistory: [
-          {
-            date: new Date(),
-            vitals: [
-              { name: 'blood pressure', value: '130/82', status: 'Normal' },
-              { name: 'oxygen level', value: '95', status: 'Low', document: '/uploads/patient9-report1.pdf' },
-            ],
-            diseases: [{ name: 'COPD' }],
-            notes: 'Oxygen therapy advised.',
-            documents: [],
-            status: 'Low',
-          },
-        ],
-      },
     ];
 
+    const savedPatients = [];
     for (const patient of patients) {
       const newPatient = new User(patient);
       await newPatient.save();
+      savedPatients.push(newPatient);
+
       // Update doctor's patients list
       const doctor = await User.findById(patient.doctor);
       if (doctor && !doctor.patients.includes(newPatient._id)) {
@@ -325,6 +195,51 @@ const seedData = async () => {
         await doctor.save();
       }
       console.log(`Patient ${patient.name} seeded successfully`);
+    }
+
+    // Seed fall alerts for doctors
+    const fallAlerts = [
+      {
+        doctor: savedDoctors[0], // Dr. Ahmed Khan
+        patient: savedPatients[0], // Ayesha Khan
+        message: `Fall detected for ${savedPatients[0].name} at ${savedPatients[0].lastKnownLocation}`,
+        date: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+      },
+      {
+        doctor: savedDoctors[0], // Dr. Ahmed Khan
+        patient: savedPatients[3], // Zainab Malik
+        message: `Fall detected for ${savedPatients[3].name} at ${savedPatients[3].lastKnownLocation}`,
+        date: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
+      },
+      {
+        doctor: savedDoctors[1], // Dr. Sobia Malik
+        patient: savedPatients[1], // Fatima Ahmed
+        message: `Fall detected for ${savedPatients[1].name} at ${savedPatients[1].lastKnownLocation}`,
+        date: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+      },
+      {
+        doctor: savedDoctors[2], // Dr. Faisal Ahmed
+        patient: savedPatients[2], // Hassan Iqbal
+        message: `Fall detected for ${savedPatients[2].name} at ${savedPatients[2].lastKnownLocation}`,
+        date: new Date(Date.now() - 15 * 60 * 1000), // 15 minutes ago
+      },
+    ];
+
+    for (const alert of fallAlerts) {
+      await User.updateOne(
+        { _id: alert.doctor._id },
+        {
+          $push: {
+            alerts: {
+              message: alert.message,
+              date: alert.date,
+              relatedPatient: alert.patient._id,
+              dismissed: false,
+            },
+          },
+        }
+      );
+      console.log(`Fall alert for ${alert.patient.name} added to ${alert.doctor.name}`);
     }
 
     console.log('Seeding completed successfully!');

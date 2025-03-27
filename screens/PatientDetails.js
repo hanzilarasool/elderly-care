@@ -1,17 +1,25 @@
-// frontend/screens/PatientDetails.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, Modal, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import Constants from 'expo-constants';
+import Pdf from 'react-native-pdf'; // For native platforms
+import { Document, Page, pdfjs } from 'react-pdf'; // For web
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css'; // Required for react-pdf on web
 
-const IP_ADDRESS = Constants.expoConfig.extra.IP_ADDRESS;
+// Set PDF.js worker for web
+if (Platform.OS === 'web') {
+  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+}
+
+const IP_ADDRESS = Constants?.expoConfig?.extra?.IP_ADDRESS || '192.168.1.13';
 
 const PatientDetails = ({ route }) => {
   const { patientId } = route.params;
   const [patient, setPatient] = useState(null);
   const [selectedDocument, setSelectedDocument] = useState(null);
+  const [numPages, setNumPages] = useState(null); // For web PDF
 
   useEffect(() => {
     const fetchPatient = async () => {
@@ -21,21 +29,25 @@ const PatientDetails = ({ route }) => {
           headers: { Authorization: `Bearer ${token}` },
         });
         const patientData = response.data.user.patients.find(p => p._id === patientId);
+        if (!patientData) {
+          console.error('Patient not found in assigned patients');
+          return;
+        }
+        console.log('Patient Data:', JSON.stringify(patientData, null, 2));
         setPatient(patientData);
       } catch (error) {
-        console.error('Error fetching patient:', error);
+        console.error('Error fetching patient:', error.response?.data || error.message);
       }
     };
     fetchPatient();
   }, [patientId]);
 
   const renderCheckupReport = ({ item, index }) => {
-    // Use the new vitals array structure from the updated backend
     const vitalData = item.vitals.map((vital, vitalIndex) => ({
       vital: vital.name.charAt(0).toUpperCase() + vital.name.slice(1),
       report: vital.value || 'N/A',
       status: vital.status || 'N/A',
-      document: vital.document || null, // Document tied to this specific vital
+      document: vital.document || null,
     }));
 
     return (
@@ -66,13 +78,18 @@ const PatientDetails = ({ route }) => {
               >
                 {vitalItem.status}
               </Text>
-              {vitalItem.document && (
+              {vitalItem.document ? (
                 <TouchableOpacity
                   style={styles.viewButton}
-                  onPress={() => setSelectedDocument(vitalItem.document)}
+                  onPress={() => {
+                    console.log('Opening document:', vitalItem.document);
+                    setSelectedDocument(vitalItem.document);
+                  }}
                 >
                   <Text style={styles.viewButtonText}>View</Text>
                 </TouchableOpacity>
+              ) : (
+                <Text style={styles.reportText}>N/A</Text>
               )}
             </View>
           </View>
@@ -80,6 +97,10 @@ const PatientDetails = ({ route }) => {
         keyExtractor={(item, index) => `vital-${index}`}
       />
     );
+  };
+
+  const onDocumentLoadSuccess = ({ numPages }) => {
+    setNumPages(numPages); // For web PDF
   };
 
   return (
@@ -90,7 +111,7 @@ const PatientDetails = ({ route }) => {
             <Image
               source={
                 patient.profileImage
-                  ? { uri: `http://${IP_ADDRESS}:5000${patient.profileImage}` }
+                  ? { uri: patient.profileImage.startsWith('http') ? patient.profileImage : `http://${IP_ADDRESS}:5000${patient.profileImage}` }
                   : require('../assets/icons/profile.png')
               }
               style={styles.profileImage}
@@ -99,7 +120,7 @@ const PatientDetails = ({ route }) => {
               <Text style={styles.name}>{patient.name}</Text>
               <View style={styles.genderAge}>
                 <Text style={styles.detail}>Age: {patient.age || 'N/A'}</Text>
-                <View style={{ backgroundColor: 'white', height: 16, width: 3 }}></View>
+                <View style={{ backgroundColor: 'white', height: 16, width: 3 }} />
                 <Text style={styles.detail}>Gender: {patient.gender || 'N/A'}</Text>
               </View>
             </View>
@@ -115,7 +136,7 @@ const PatientDetails = ({ route }) => {
           <FlatList
             data={patient.medicalHistory || []}
             renderItem={renderCheckupReport}
-            keyExtractor={(item, index) => index.toString()}
+            keyExtractor={(item) => item._id.toString()}
             ListEmptyComponent={<Text style={styles.emptyText}>No checkup reports available.</Text>}
           />
 
@@ -131,11 +152,32 @@ const PatientDetails = ({ route }) => {
                 {selectedDocument && (
                   <>
                     <Text style={styles.modalTitle}>Document Viewer</Text>
-                    <Image
-                      source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}` }}
-                      style={styles.documentImage}
-                      resizeMode="contain"
-                    />
+                    {selectedDocument.endsWith('.pdf') ? (
+                      Platform.OS === 'web' ? (
+                        <Document
+                          file={`http://${IP_ADDRESS}:5000${selectedDocument}`}
+                          onLoadSuccess={onDocumentLoadSuccess}
+                          onLoadError={(error) => console.error('Web PDF load error:', error)}
+                        >
+                          {Array.from(new Array(numPages || 1), (el, index) => (
+                            <Page key={`page_${index + 1}`} pageNumber={index + 1} width={styles.documentImage.width} />
+                          ))}
+                        </Document>
+                      ) : (
+                        <Pdf
+                          source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}`, cache: true }}
+                          style={styles.documentImage}
+                          onError={(error) => console.error('PDF load error:', error)}
+                        />
+                      )
+                    ) : (
+                      <Image
+                        source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}` }}
+                        style={styles.documentImage}
+                        resizeMode="contain"
+                        onError={(e) => console.error('Image load error:', e.nativeEvent.error)}
+                      />
+                    )}
                     <TouchableOpacity
                       style={styles.closeButton}
                       onPress={() => setSelectedDocument(null)}
@@ -160,24 +202,20 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  profileSection: {
-    // alignItems: 'center',
-  },
+  profileSection: {},
   profilePart: {
     backgroundColor: 'rgba(0,0,0,0.1)',
     borderRadius: 20,
     height: 150,
     display: 'flex',
     flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
     gap: 24,
+    alignItems: 'center',
   },
   profileImage: {
     width: 130,
     height: 150,
     borderRadius: 10,
-    // marginBottom: 10,
   },
   name: {
     fontSize: 18,
@@ -278,7 +316,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   documentImage: {
-    width: '100%',
+    width: Platform.OS === 'web' ? '90%' : '100%', // Adjust for web
     height: 400,
   },
   closeButton: {

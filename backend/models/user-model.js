@@ -1,4 +1,3 @@
-// backend/models/user-model.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -32,9 +31,8 @@ const userSchema = new mongoose.Schema({
     enum: ['M', 'F', 'Other'],
   },
   profileImage: {
-    type: String, // Store the URL/path of the uploaded image
+    type: String,
   },
-  // Doctor-specific fields
   specialization: {
     type: String,
   },
@@ -42,7 +40,6 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
-  // Patient-specific fields
   doctor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -55,14 +52,14 @@ const userSchema = new mongoose.Schema({
     vitals: [{
       name: {
         type: String,
-        required: true // e.g., "blood pressure", "heart rate"
+        required: true
       },
       value: {
         type: String,
-        required: true // e.g., "120/80", "72"
+        required: true
       },
       document: {
-        type: String, // URL/path of document associated with this vital
+        type: String,
       },
       status: {
         type: String,
@@ -75,12 +72,12 @@ const userSchema = new mongoose.Schema({
         type: String,
       },
       document: {
-        type: String, // URL/path of document associated with this disease
+        type: String,
       }
     }],
     notes: String,
-    documents: [String], // Additional documents not tied to specific vitals/diseases
-    status: { // Overall status for the medical history entry
+    documents: [String],
+    status: {
       type: String,
       enum: ['Normal', 'High', 'Low', 'OK', 'Danger'],
       default: 'Normal'
@@ -90,21 +87,27 @@ const userSchema = new mongoose.Schema({
     message: String,
     date: { type: Date, default: Date.now },
     dismissed: { type: Boolean, default: false },
+    relatedPatient: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
   }],
+  lastKnownLocation: {
+    type: String,
+    default: 'Unknown'
+  },
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
 
-// Hash password before saving
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
-// Password comparison method
 userSchema.methods.correctPassword = async function(candidatePassword, userPassword) {
   return await bcrypt.compare(candidatePassword, userPassword);
 };
