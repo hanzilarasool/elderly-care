@@ -285,6 +285,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#657C7E',
     marginBottom: 4,
+    width:150
   },
   boxTime: {
     fontSize: 14,

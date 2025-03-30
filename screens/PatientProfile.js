@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from "expo-location";
 import { Accelerometer } from 'expo-sensors';
 
-const IP_ADDRESS = Constants.expoConfig.extra.IP_ADDRESS;
+const IP_ADDRESS = Constants.expoConfig?.extra?.IP_ADDRESS || 'localhost'; // Fallback to 'localhost' if undefined
 
 const PatientProfile = ({ navigation }) => {
   const [user, setUser] = useState(null);
@@ -30,9 +30,11 @@ const PatientProfile = ({ navigation }) => {
     const fetchProfile = async () => {
       try {
         const token = await AsyncStorage.getItem('token');
-        const userData = JSON.parse(await AsyncStorage.getItem('user'));
+        if (!token) throw new Error('No token found');
+
+        const userData = JSON.parse(await AsyncStorage.getItem('user') || '{}');
         setUser(userData);
-        setName(userData.name);
+        setName(userData.name || '');
         setAge(userData.age?.toString() || '');
         setGender(userData.gender || '');
         setProfileImage(userData.profileImage || null);
@@ -51,8 +53,12 @@ const PatientProfile = ({ navigation }) => {
 
         if (lastKnown !== 'Unknown') {
           const [lat, lon] = lastKnown.split(', ').map(Number);
-          const address = await reverseGeocode(lat, lon);
-          setLocationAddress(address);
+          if (!isNaN(lat) && !isNaN(lon)) {
+            const address = await reverseGeocode(lat, lon);
+            setLocationAddress(address);
+          } else {
+            setLocationAddress('Invalid Coordinates');
+          }
         }
       } catch (error) {
         console.error('Error fetching profile:', error.response?.data || error.message);
@@ -64,40 +70,36 @@ const PatientProfile = ({ navigation }) => {
 
   useEffect(() => {
     (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        console.log("Location permission denied");
-        return;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          console.log("Location permission denied");
+          return;
+        }
+        const loc = await Location.getCurrentPositionAsync({});
+        const newLocationCoords = `${loc.coords.latitude}, ${loc.coords.longitude}`;
+        setLocationCoords(newLocationCoords);
+
+        if (!isNaN(loc.coords.latitude) && !isNaN(loc.coords.longitude)) {
+          const address = await reverseGeocode(loc.coords.latitude, loc.coords.longitude);
+          setLocationAddress(address);
+        } else {
+          setLocationAddress('Invalid Coordinates');
+        }
+
+        const token = await AsyncStorage.getItem('token');
+        if (token) {
+          await axios.patch(
+            `http://${IP_ADDRESS}:5000/api/user/me`,
+            { lastKnownLocation: newLocationCoords },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+        }
+      } catch (error) {
+        console.error('Error updating location:', error.message);
       }
-      let loc = await Location.getCurrentPositionAsync({});
-      const newLocationCoords = `${loc.coords.latitude}, ${loc.coords.longitude}`;
-      setLocationCoords(newLocationCoords);
-
-      const address = await reverseGeocode(loc.coords.latitude, loc.coords.longitude);
-      setLocationAddress(address);
-
-      const token = await AsyncStorage.getItem('token');
-      await axios.patch(
-        `http://${IP_ADDRESS}:5000/api/user/me`,
-        { lastKnownLocation: newLocationCoords },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
     })();
   }, []);
-
-  const reverseGeocode = async (latitude, longitude) => {
-    try {
-      const result = await Location.reverseGeocodeAsync({ latitude, longitude });
-      if (result.length > 0) {
-        const { street, city, region, country } = result[0];
-        return `${street || ''} ${city || ''}, ${region || ''}, ${country || ''}`.trim() || 'Unknown Address';
-      }
-      return 'Unknown Address';
-    } catch (error) {
-      console.error('Error reverse geocoding:', error);
-      return 'Unknown Address';
-    }
-  };
 
   useEffect(() => {
     let subscription;
@@ -105,7 +107,6 @@ const PatientProfile = ({ navigation }) => {
       subscription = Accelerometer.addListener(accelerometerData => {
         const { x, y, z } = accelerometerData;
         const totalAcceleration = Math.sqrt(x * x + y * y + z * z);
-
         if (totalAcceleration > ACCELERATION_THRESHOLD && !fallDetected) {
           handleFallDetected();
         }
@@ -120,7 +121,24 @@ const PatientProfile = ({ navigation }) => {
         subscription.remove();
       }
     };
-  }, [fallDetected, locationCoords, user]);
+  }, [fallDetected]);
+
+  const reverseGeocode = async (latitude, longitude) => {
+    try {
+      if (isNaN(latitude) || isNaN(longitude)) {
+        throw new Error('Invalid latitude or longitude');
+      }
+      const result = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (result.length > 0) {
+        const { street, city, region, country } = result[0];
+        return `${street || ''} ${city || ''}, ${region || ''}, ${country || ''}`.trim() || 'Unknown Address';
+      }
+      return 'Unknown Address';
+    } catch (error) {
+      console.error('Error reverse geocoding:', error.message);
+      return 'Unknown Address';
+    }
+  };
 
   const handleFallDetected = async () => {
     setFallDetected(true);
@@ -128,7 +146,9 @@ const PatientProfile = ({ navigation }) => {
 
     try {
       const token = await AsyncStorage.getItem('token');
-      const userData = JSON.parse(await AsyncStorage.getItem('user'));
+      const userData = JSON.parse(await AsyncStorage.getItem('user') || '{}');
+      if (!token || !userData.email) throw new Error('Missing token or user data');
+
       const response = await axios.post(
         `http://${IP_ADDRESS}:5000/api/falls/detect`,
         {
@@ -147,23 +167,29 @@ const PatientProfile = ({ navigation }) => {
   };
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
 
-    if (!result.canceled) {
-      const uri = result.assets[0].uri;
-      setProfileImage(uri);
-      await uploadProfileImage(uri);
+      if (!result.canceled && result.assets?.length > 0) {
+        const uri = result.assets[0].uri;
+        setProfileImage(uri);
+        await uploadProfileImage(uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error.message);
     }
   };
 
   const uploadProfileImage = async (uri) => {
     try {
       const token = await AsyncStorage.getItem('token');
+      if (!token) throw new Error('No token found');
+
       const formData = new FormData();
       formData.append('profileImage', {
         uri,
@@ -180,43 +206,44 @@ const PatientProfile = ({ navigation }) => {
 
       const newProfileImage = response.data.profileImage;
       setProfileImage(newProfileImage);
-      setUser({ ...user, profileImage: newProfileImage });
+      setUser(prevUser => ({ ...prevUser, profileImage: newProfileImage }));
       await AsyncStorage.setItem('user', JSON.stringify({ ...user, profileImage: newProfileImage }));
     } catch (error) {
       console.error('Error uploading profile image:', error.response?.data || error.message);
-      setProfileImage(user.profileImage);
-      alert('Failed to upload profile image: ' + (error.response?.data?.error || error.message));
+      setProfileImage(user?.profileImage || null);
+      Alert.alert('Error', 'Failed to upload profile image: ' + (error.response?.data?.error || error.message));
     }
   };
 
   const handleSave = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
+      if (!token) throw new Error('No token found');
+
       const response = await axios.patch(`http://${IP_ADDRESS}:5000/api/user/me`, {
         name,
-        age: parseInt(age),
+        age: age ? parseInt(age, 10) : null,
         gender,
       }, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       setUser(response.data.user);
       await AsyncStorage.setItem('user', JSON.stringify(response.data.user));
       setIsEditing(false);
     } catch (error) {
       console.error('Error saving profile:', error.response?.data || error.message);
-      alert('Failed to save profile: ' + (error.response?.data?.error || error.message));
+      Alert.alert('Error', 'Failed to save profile: ' + (error.response?.data?.error || error.message));
     }
   };
 
   const renderCheckupReport = ({ item, index }) => {
-    const vitalData = item.vitals.map((vital, vitalIndex) => ({
+    const vitalData = Array.isArray(item.vitals) ? item.vitals.map((vital, vitalIndex) => ({
       srNo: vitalIndex + 1,
-      vital: vital.name.charAt(0).toUpperCase() + vital.name.slice(1),
-      report: vital.value,
+      vital: vital.name ? vital.name.charAt(0).toUpperCase() + vital.name.slice(1) : 'Unknown',
+      report: vital.value || 'N/A',
       document: vital.document || 'N/A',
-    }));
-
-    console.log("Vital data for item", index, ":", vitalData);
+    })) : [];
 
     return (
       <View>
@@ -242,64 +269,66 @@ const PatientProfile = ({ navigation }) => {
     <LinearGradient colors={['#E0F7FA', '#B2EBF2']} style={styles.container}>
       {user ? (
         <View style={styles.profileSection}>
-          <TouchableOpacity onPress={isEditing ? pickImage : null}>
-            <Image
-              source={
-                profileImage
-                  ? { uri: profileImage.startsWith('http') ? profileImage : `http://${IP_ADDRESS}:5000${profileImage}` }
-                  : require("../assets/icons/profile.png")
-              }
-              style={styles.profileImage}
-            />
-            {isEditing && (
-              <Ionicons name="camera" size={24} color="white" style={styles.cameraIcon} />
-            )}
-          </TouchableOpacity>
+          <View style={styles.profileSectionTop}>
+            <TouchableOpacity onPress={isEditing ? pickImage : null}>
+              <Image
+                source={
+                  profileImage
+                    ? { uri: profileImage.startsWith('http') ? profileImage : `http://${IP_ADDRESS}:5000${profileImage}` }
+                    : require("../assets/icons/profile.png")
+                }
+                style={styles.profileImage}
+              />
+              {isEditing && (
+                <Ionicons name="camera" size={24} color="white" style={styles.cameraIcon} />
+              )}
+            </TouchableOpacity>
 
-          {isEditing ? (
-            <>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Enter your name"
-                placeholderTextColor="#676054"
-              />
-              <TextInput
-                style={styles.input}
-                value={age}
-                onChangeText={setAge}
-                placeholder="Enter your age"
-                placeholderTextColor="#676054"
-                keyboardType="numeric"
-              />
-              <TextInput
-                style={styles.input}
-                value={gender}
-                onChangeText={setGender}
-                placeholder="Enter your gender (M/F/Other)"
-                placeholderTextColor="#676054"
-              />
-            </>
-          ) : (
-            <>
-              <Text style={styles.name}>{name}</Text>
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                <Text style={styles.detail}>Age: {age || 'N/A'}</Text>
-                <View style={{ backgroundColor: "white", width: 2.5, height: 17 }}></View>
-                <Text style={styles.detail}>Gender: {gender || 'N/A'}</Text>
+            {isEditing ? (
+              <View style={styles.EditProfileRightSection}>
+                <TextInput
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Enter your name"
+                  placeholderTextColor="#676054"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={age}
+                  onChangeText={setAge}
+                  placeholder="Enter your age"
+                  placeholderTextColor="#676054"
+                  keyboardType="numeric"
+                />
+                <TextInput
+                  style={styles.input}
+                  value={gender}
+                  onChangeText={setGender}
+                  placeholder="Enter your gender (M/F/Other)"
+                  placeholderTextColor="#676054"
+                />
               </View>
-              <TouchableOpacity style={styles.medicalConditionButton}>
-                <Text style={styles.medicalConditionText}>
-                  {medicalHistory.length > 0 && medicalHistory[0].diseases.length > 0
-                    ? medicalHistory[0].diseases.map(d => d.name).join(', ')
-                    : 'No Medical Conditions'}
+            ) : (
+              <View style={styles.righSectionProfile}>
+                <Text style={styles.name}>{name || 'Unnamed'}</Text>
+                <View style={styles.ageGender}>
+                  <Text style={styles.detail}>Age: {age || 'N/A'}</Text>
+                  <Text style={styles.detail}>Gender: {gender || 'N/A'}</Text>
+                </View>
+                <TouchableOpacity style={styles.medicalConditionButton}>
+                  <Text style={styles.medicalConditionText}>
+                    {medicalHistory.length > 0 && medicalHistory[0]?.diseases?.length > 0
+                      ? medicalHistory[0].diseases.map(d => d.name).join(', ')
+                      : 'No Medical Conditions'}
+                  </Text>
+                </TouchableOpacity>
+                <Text style={styles.detail}>
+                  <Text style={{ fontWeight: "bold" }}>Location:</Text> {locationAddress}
                 </Text>
-              </TouchableOpacity>
-              <Text style={styles.detail}>Last Known Location: {locationAddress}</Text>
-            </>
-          )}
-
+              </View>
+            )}
+          </View>
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={[styles.button, styles.cancelButton]}
@@ -324,7 +353,7 @@ const PatientProfile = ({ navigation }) => {
           <FlatList
             data={medicalHistory}
             renderItem={renderCheckupReport}
-            keyExtractor={(item) => item._id.toString()}
+            keyExtractor={(item) => item._id?.toString() || `${Math.random()}`} // Fallback for missing _id
             ListEmptyComponent={<Text style={styles.emptyText}>No medical history available.</Text>}
             style={styles.medicalHistoryList}
             contentContainerStyle={styles.medicalHistoryContent}
@@ -347,7 +376,7 @@ const PatientProfile = ({ navigation }) => {
                       resizeMode="contain"
                     />
                     <TouchableOpacity
-                      style={styles.button}
+                      style={[styles.button, { marginTop: 20 }]}
                       onPress={() => setSelectedDocument(null)}
                     >
                       <Text style={styles.buttonText}>Close</Text>
@@ -389,30 +418,55 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 5,
   },
+  profileSectionTop: {
+    display: "flex",
+    flexDirection: "row",
+    width: "100%",
+    backgroundColor: "rgba(0,0,0,0.1)",
+    alignItems: "center",
+    height: 165,
+    gap: 10,
+  },
   name: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '600',
     color: '#333',
     marginBottom: 5,
+  },
+  ageGender: {
+    width: "50%",
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   detail: {
     fontSize: 16,
     color: '#666',
     marginBottom: 5,
+    width: "50%",
+  },
+  EditProfileRightSection: {
+    flexDirection: "column",
+    width: "65%",
+  },
+  righSectionProfile: {
+    // backgroundColor:"red",
+    // width:500
   },
   medicalConditionButton: {
     backgroundColor: '#E0E0E0',
     paddingVertical: 5,
     paddingHorizontal: 15,
     borderRadius: 15,
-    marginBottom: 10,
+    marginBottom: 5,
+    width: "auto",
+    alignSelf: 'flex-start',
   },
   medicalConditionText: {
     fontSize: 14,
     color: '#333',
   },
   input: {
-    height: 50,
+    height: 38,
     width: '80%',
     backgroundColor: 'white',
     borderRadius: 8,
@@ -517,6 +571,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     width: '90%',
     alignItems: 'center',
+    // backgroundColor:"yellow",
+    height:"65%"
   },
   modalTitle: {
     fontSize: 18,

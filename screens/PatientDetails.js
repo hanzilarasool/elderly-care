@@ -1,17 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import Constants from 'expo-constants';
-import Pdf from 'react-native-pdf'; // For native platforms
-import { Document, Page, pdfjs } from 'react-pdf'; // For web
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css'; // Required for react-pdf on web
-
-// Set PDF.js worker for web
-if (Platform.OS === 'web') {
-  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-}
 
 const IP_ADDRESS = Constants?.expoConfig?.extra?.IP_ADDRESS || '192.168.1.13';
 
@@ -19,7 +11,6 @@ const PatientDetails = ({ route }) => {
   const { patientId } = route.params;
   const [patient, setPatient] = useState(null);
   const [selectedDocument, setSelectedDocument] = useState(null);
-  const [numPages, setNumPages] = useState(null); // For web PDF
 
   useEffect(() => {
     const fetchPatient = async () => {
@@ -99,10 +90,6 @@ const PatientDetails = ({ route }) => {
     );
   };
 
-  const onDocumentLoadSuccess = ({ numPages }) => {
-    setNumPages(numPages); // For web PDF
-  };
-
   return (
     <LinearGradient colors={['#E0F7FA', '#B2EBF2']} style={styles.container}>
       {patient ? (
@@ -140,7 +127,7 @@ const PatientDetails = ({ route }) => {
             ListEmptyComponent={<Text style={styles.emptyText}>No checkup reports available.</Text>}
           />
 
-          {/* Document Viewer Modal */}
+          {/* Document Viewer Modal (Image-Only) */}
           <Modal
             visible={!!selectedDocument}
             transparent={true}
@@ -151,33 +138,13 @@ const PatientDetails = ({ route }) => {
               <View style={styles.modalContent}>
                 {selectedDocument && (
                   <>
-                    <Text style={styles.modalTitle}>Document Viewer</Text>
-                    {selectedDocument.endsWith('.pdf') ? (
-                      Platform.OS === 'web' ? (
-                        <Document
-                          file={`http://${IP_ADDRESS}:5000${selectedDocument}`}
-                          onLoadSuccess={onDocumentLoadSuccess}
-                          onLoadError={(error) => console.error('Web PDF load error:', error)}
-                        >
-                          {Array.from(new Array(numPages || 1), (el, index) => (
-                            <Page key={`page_${index + 1}`} pageNumber={index + 1} width={styles.documentImage.width} />
-                          ))}
-                        </Document>
-                      ) : (
-                        <Pdf
-                          source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}`, cache: true }}
-                          style={styles.documentImage}
-                          onError={(error) => console.error('PDF load error:', error)}
-                        />
-                      )
-                    ) : (
-                      <Image
-                        source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}` }}
-                        style={styles.documentImage}
-                        resizeMode="contain"
-                        onError={(e) => console.error('Image load error:', e.nativeEvent.error)}
-                      />
-                    )}
+                    <Text style={styles.modalTitle}>Image Viewer</Text>
+                    <Image
+                      source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}` }}
+                      style={styles.documentImage}
+                      resizeMode="contain"
+                      onError={(e) => console.error('Image load error:', e.nativeEvent.error)}
+                    />
                     <TouchableOpacity
                       style={styles.closeButton}
                       onPress={() => setSelectedDocument(null)}
@@ -316,7 +283,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   documentImage: {
-    width: Platform.OS === 'web' ? '90%' : '100%', // Adjust for web
+    width: '100%',
     height: 400,
   },
   closeButton: {

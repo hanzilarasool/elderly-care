@@ -1,8 +1,8 @@
 {
   "expo": {
     "extra": {
-      "IP_ADDRESS": "192.168.1.13",
-      "IP": "192.168.1.13",
+      "IP_ADDRESS": "192.168.1.10",
+      "IP": "192.168.1.10",
       "GOOGLE_MAPS_API_KEY": "your-google-maps-key"
     },
     "permissions": {
@@ -62,9 +62,7 @@
           "color": "#00796B",
           "sounds": ["./assets/notification-sound.wav"]
         }
-      ],
-      "@config-plugins/react-native-blob-util",
-      "@config-plugins/react-native-pdf"
+      ]
     ],
     "scheme": "elderlycareapp"
   }

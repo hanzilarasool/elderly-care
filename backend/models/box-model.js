@@ -10,7 +10,7 @@ const boxSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String, required: true },
   date: { type: Date, default: Date.now },
-  timeSlot: { type: String, required: true },
+  timeSlot: { type: String},
   medicines: [{
     _id: {
       type: mongoose.Schema.Types.ObjectId,

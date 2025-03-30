@@ -21,7 +21,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   }
 }
 
-rootProject.name = 'elderly-care-app'
+rootProject.name = 'elderlycareapp'
 
 dependencyResolutionManagement {
   versionCatalogs {

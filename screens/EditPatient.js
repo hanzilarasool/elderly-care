@@ -1,19 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, Modal, FlatList, StyleSheet, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, Modal, FlatList, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import Pdf from 'react-native-pdf'; // For native platforms
-import { Document, Page, pdfjs } from 'react-pdf'; // For web
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css'; // Required for react-pdf on web
-
-// Set PDF.js worker for web
-if (Platform.OS === 'web') {
-  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-}
 
 const IP_ADDRESS = Constants?.expoConfig?.extra?.IP_ADDRESS || '192.168.1.13';
 
@@ -32,7 +24,6 @@ const EditPatient = ({ route, navigation }) => {
   const [status, setStatus] = useState('');
   const [document, setDocument] = useState(null);
   const [selectedDocument, setSelectedDocument] = useState(null);
-  const [numPages, setNumPages] = useState(null); // For web PDF
 
   useEffect(() => {
     const fetchPatient = async () => {
@@ -58,32 +49,20 @@ const EditPatient = ({ route, navigation }) => {
   }, [patientId]);
 
   const pickDocument = async () => {
-    if (Platform.OS === 'web') {
-      // Web file picker (simplified, assumes input element usage)
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*,application/pdf';
-      input.onchange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-          setDocument({ uri: URL.createObjectURL(file), name: file.name });
-        }
-      };
-      input.click();
-    } else {
-      try {
-        const result = await DocumentPicker.getDocumentAsync({
-          type: '*/*',
-          copyToCacheDirectory: true,
-        });
-        if (result.type === 'success') {
-          setDocument(result);
-        } else {
-          console.log('Document picking cancelled');
-        }
-      } catch (error) {
-        console.error('Error picking document:', error);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'image/*', // Restrict to images only
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const pickedDocument = result.assets[0]; // Access the first asset
+        console.log('Document picked:', pickedDocument);
+        setDocument(pickedDocument);
+      } else {
+        console.log('Image picking cancelled by user');
       }
+    } catch (error) {
+      console.error('Error picking image:', error);
     }
   };
 
@@ -92,6 +71,7 @@ const EditPatient = ({ route, navigation }) => {
       const token = await AsyncStorage.getItem('token');
       const vitals = vitalName && rate ? [{ name: vitalName.toLowerCase(), value: rate, status: status || 'Normal' }] : [];
 
+      console.log('Sending medical history:', { patientId, vitals, diseases, notes, status });
       const response = await axios.post(
         `http://${IP_ADDRESS}:5000/api/user/patient/medical-history`,
         {
@@ -103,6 +83,7 @@ const EditPatient = ({ route, navigation }) => {
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      console.log('Medical history response:', response.data);
 
       if (document) {
         const formData = new FormData();
@@ -113,16 +94,31 @@ const EditPatient = ({ route, navigation }) => {
         }
         formData.append('document', {
           uri: document.uri,
-          name: document.name || `report-${Date.now()}.${document.uri.split('.').pop() || 'file'}`,
-          type: document.mimeType || 'application/octet-stream',
+          name: document.name || `image-${Date.now()}.${document.uri.split('.').pop() || 'jpg'}`,
+          type: document.mimeType || 'image/jpeg',
         });
 
-        await axios.post(`http://${IP_ADDRESS}:5000/api/user/upload-document`, formData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data',
+        console.log('Uploading image with formData:', {
+          patientId,
+          historyId: response.data.medicalHistory[0]._id,
+          vitalIndex: vitals.length > 0 ? 0 : undefined,
+          document: {
+            uri: document.uri,
+            name: document.name,
+            type: document.mimeType,
           },
         });
+        const uploadResponse = await axios.post(
+          `http://${IP_ADDRESS}:5000/api/user/upload-document`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data',
+            },
+          }
+        );
+        console.log('Upload response:', uploadResponse.data);
       }
 
       const updatedResponse = await axios.get(`http://${IP_ADDRESS}:5000/api/user/me`, {
@@ -175,10 +171,6 @@ const EditPatient = ({ route, navigation }) => {
         ))}
       </View>
     );
-  };
-
-  const onDocumentLoadSuccess = ({ numPages }) => {
-    setNumPages(numPages); // For web PDF
   };
 
   return (
@@ -262,11 +254,11 @@ const EditPatient = ({ route, navigation }) => {
               onChangeText={setStatus}
             />
             <TouchableOpacity style={styles.button} onPress={pickDocument}>
-              <Text style={styles.buttonText}>Attach Document</Text>
+              <Text style={styles.buttonText}>Attach Image</Text>
             </TouchableOpacity>
             {document && (
               <Text style={styles.documentText}>
-                Document Selected: {document.name || document.uri.split('/').pop()}
+                Image Selected: {document.name || (document.uri ? document.uri.split('/').pop() : 'Unknown')}
               </Text>
             )}
             <TouchableOpacity style={styles.button} onPress={handleAddMedicalHistory}>
@@ -279,7 +271,7 @@ const EditPatient = ({ route, navigation }) => {
         </View>
       </Modal>
 
-      {/* Document Viewer Modal */}
+      {/* Image Viewer Modal */}
       <Modal
         visible={!!selectedDocument}
         transparent={true}
@@ -290,33 +282,13 @@ const EditPatient = ({ route, navigation }) => {
           <View style={styles.modalContent}>
             {selectedDocument && (
               <>
-                <Text style={styles.modalTitle}>Document Viewer</Text>
-                {selectedDocument.endsWith('.pdf') ? (
-                  Platform.OS === 'web' ? (
-                    <Document
-                      file={`http://${IP_ADDRESS}:5000${selectedDocument}`}
-                      onLoadSuccess={onDocumentLoadSuccess}
-                      onLoadError={(error) => console.error('Web PDF load error:', error)}
-                    >
-                      {Array.from(new Array(numPages || 1), (el, index) => (
-                        <Page key={`page_${index + 1}`} pageNumber={index + 1} width={styles.documentImage.width} />
-                      ))}
-                    </Document>
-                  ) : (
-                    <Pdf
-                      source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}`, cache: true }}
-                      style={styles.documentImage}
-                      onError={(error) => console.error('PDF load error:', error)}
-                    />
-                  )
-                ) : (
-                  <Image
-                    source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}` }}
-                    style={styles.documentImage}
-                    resizeMode="contain"
-                    onError={(e) => console.error('Image load error:', e.nativeEvent.error)}
-                  />
-                )}
+                <Text style={styles.modalTitle}>Image Viewer</Text>
+                <Image
+                  source={{ uri: `http://${IP_ADDRESS}:5000${selectedDocument}` }}
+                  style={styles.documentImage}
+                  resizeMode="contain"
+                  onError={(e) => console.error('Image load error:', e.nativeEvent.error)}
+                />
                 <TouchableOpacity
                   style={styles.button}
                   onPress={() => setSelectedDocument(null)}
@@ -459,7 +431,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   documentImage: {
-    width: Platform.OS === 'web' ? '90%' : '100%', // Adjust for web
+    width: '100%',
     height: 400,
   },
 });
