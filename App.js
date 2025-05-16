@@ -26,6 +26,8 @@ import AwarenessDetails from './screens/AwarenessDetails';
 import { BoxesProvider } from './contexts/BoxesContext';
 import { ErrorBoundary } from 'react-error-boundary';
 import Alerts from './screens/Alerts';
+
+import MemoryGameScreen from './screens/MemoryGameScreen';
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
 const ErrorFallback = ({ error }) => (
@@ -49,7 +51,7 @@ console.log("inside rendering doctor drawer");
     <Drawer.Screen name="DoctorProfile" component={DoctorProfile} />
     <Drawer.Screen name="Precautions" component={Precautions} />
     <Drawer.Screen name="Emergency Protocols" component={EmergencyProtocols} />
-    <Drawer.Screen name="Alerts" component={Alerts} />
+    
     {/* <Drawer.Screen name="Alerts" component={Alerts} /> */}
   </Drawer.Navigator>
 };
@@ -68,6 +70,7 @@ const PatientDrawer = () => (
     <Drawer.Screen name="PatientProfile" component={PatientProfile} />
     <Drawer.Screen name="Medicines" component={BoxesScreen} />
     <Drawer.Screen name="PatientAwareness" component={PatientAwareness} />
+    <Drawer.Screen name="Memory Game" component={MemoryGameScreen} />
   </Drawer.Navigator>
 );
 

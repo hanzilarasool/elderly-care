@@ -1,8 +1,8 @@
 {
   "expo": {
     "extra": {
-      "IP_ADDRESS": "192.168.1.10",
-      "IP": "192.168.1.10",
+      "IP_ADDRESS": "192.168.1.15",
+      "IP": "192.168.1.15",
       "GOOGLE_MAPS_API_KEY": "your-google-maps-key"
     },
     "permissions": {

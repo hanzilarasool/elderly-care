@@ -11,6 +11,7 @@ const fs = require('fs'); // Add this for file system operations
 const chatRouter=require("./routes/chat-routes");
 const boxesRouter=require("./routes/box-routes");
 const fallRoutes=require("./routes/fall-routes")
+const scoreRoutes=require("./routes/score-routes")
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -55,6 +56,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use("/api/chat",chatRouter);
 app.use("/api/boxes",boxesRouter);
 app.use("/api/falls", fallRoutes);
+app.use('/api/scores', scoreRoutes);
 app.get('/', (req, res) => {
   res.status(200).json({
     message: 'Server is running',

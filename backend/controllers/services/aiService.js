@@ -1,13 +1,11 @@
-// services/aiService.js
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const genAI = new GoogleGenerativeAI("AIzaSyCnwX_uqmi4BnkFPUBj4EtscU9IaaNH5NI");
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "AIzaSyCnwX_uqmi4BnkFPUBj4EtscU9IaaNH5NI");
 
 const medical_chatbot = async (userInput) => {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
-    // Add context management if needed
     const chat = model.startChat({
       history: [
         {
@@ -18,7 +16,6 @@ const medical_chatbot = async (userInput) => {
       ]
     });
     
-
     const result = await chat.sendMessage(userInput);
     return result.response.text();
   } catch (error) {
@@ -26,4 +23,20 @@ const medical_chatbot = async (userInput) => {
     throw new Error('Failed to process medical query');
   }
 };
-module.exports = { medical_chatbot };
+
+const analyzeScores = async (scoreData) => {
+  try {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const scoreMovePairs = scoreData.map(({ score, moves }) => `Score: ${score}, Moves: ${moves}`).join('; ');
+    const prompt = `
+      You are a medical assistant specializing in elderly care. Analyze the following memory game data for a user to assess potential dementia or Alzheimer's risk. The data is from a memory-matching game with 4 pairs (8 cards), where higher scores (max 100) and fewer moves indicate better performance. A high number of moves (e.g., >12 for 4 pairs) may suggest memory challenges. Provide concise suggestions for cognitive health based on trends or patterns in the scores and moves. Do not diagnose; encourage consultation with a healthcare provider. Data: ${scoreMovePairs}.
+    `;
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+  } catch (error) {
+    console.error('AI Score Analysis Error:', error);
+    throw new Error('Failed to analyze scores');
+  }
+};
+
+module.exports = { medical_chatbot, analyzeScores };
